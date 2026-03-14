@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BOAT RACE AI PRO プロ仕様</title>
+<meta name="theme-color" content="#0f172a">
+<style>
+:root{
+  --bg:#eef2ff; --card:#fff; --text:#111827; --muted:#64748b; --line:#e5e7eb;
+  --navy:#0f172a; --blue:#1d4ed8; --purple:#7c3aed; --orange:#f97316; --green:#16a34a; --red:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#eaf1ff 0%,#f7f9ff 100%);color:var(--text)}
+.app{max-width:430px;margin:0 auto;min-height:100vh;padding-bottom:30px}
+.header{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;padding:18px 14px 16px;border-bottom-left-radius:22px;border-bottom-right-radius:22px;box-shadow:0 8px 24px rgba(15,23,42,.25)}
+.header h1{margin:0;font-size:22px}
+.header p{margin:6px 0 0;font-size:12px;opacity:.92}
+.card{background:var(--card);margin:10px;border-radius:18px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.section{font-size:14px;font-weight:800;margin-bottom:8px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;font-size:12px}
+input,select,button{width:100%;font-size:16px;border-radius:12px}
+input,select{padding:9px 8px;border:1px solid #cbd5e1;background:#fff}
+button{padding:12px;border:none;background:var(--orange);color:#fff;font-weight:800}
+.secondary{background:#475569}
+.helper{font-size:12px;color:#334155;background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:12px}
+.kpiWrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.kpi{background:linear-gradient(180deg,#f8fbff,#f3f7ff);border:1px solid #e5e7eb;border-radius:14px;padding:12px;text-align:center}
+.kpi .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.kpi .value{font-size:22px;font-weight:900}
+.proHero{background:linear-gradient(135deg,#111827,#1d4ed8);color:#fff;border-radius:18px;padding:16px;text-align:center}
+.proHero .mini{font-size:12px;opacity:.85;margin-bottom:6px}
+.proHero .big{font-size:42px;font-weight:900;line-height:1}
+.proHero .subbig{font-size:13px;opacity:.92;margin-top:6px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{border-bottom:1px solid var(--line);padding:6px;text-align:center;font-size:14px}
+.bet{display:inline-block;background:var(--green);color:#fff;padding:6px 10px;border-radius:999px;margin:4px;font-weight:800}
+.warn{display:inline-block;background:var(--red);color:#fff;padding:6px 10px;border-radius:999px;margin:4px;font-weight:800}
+.tip{display:inline-block;background:var(--blue);color:#fff;padding:6px 10px;border-radius:999px;margin:4px;font-weight:800}
+.notice{font-size:12px;color:#334155;background:#f8fafc;border:1px dashed #cbd5e1;padding:10px;border-radius:12px;line-height:1.6}
+.hot{font-weight:900;color:#b91c1c}
+.small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>BOAT RACE AI PRO</h1>
+    <p>プロ仕様 / 全国24場補正 / 展示順位 / 進入予測 / 荒れ判定 / 妙味 / 資金配分</p>
+  </div>
+
+  <div class="card">
+    <div class="section">基本設定</div>
+    <div class="row">
+      <select id="track"></select>
+      <input id="race" placeholder="例: 10R">
+    </div>
+    <div class="helper" id="trackInfo" style="margin-top:10px">場補正を自動適用します。</div>
+  </div>
+
+  <div class="card">
+    <div class="section">入力</div>
+    <div class="grid">
+      <div>艇</div><div>全国</div><div>当地</div><div>M2</div><div>B2</div><div>ST</div><div>展示</div><div>級</div>
+    </div>
+    <div id="inputs"></div>
+    <div class="small" style="margin-top:8px">展示順位は展示タイム入力後に自動計算します。</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="btnSample">サンプル</button>
+      <button id="btnClear" class="secondary">全消去</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnAI">AI予想</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section">本命表示</div>
+    <div class="proHero">
+      <div class="mini">AI本命</div>
+      <div class="big" id="heroHonmei">-</div>
+      <div class="subbig" id="heroText">BOAT RACE AI PRO</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section">予想結果</div>
+    <div class="kpiWrap">
+      <div class="kpi"><div class="label">本命</div><div class="value" id="honmei">-</div></div>
+      <div class="kpi"><div class="label">荒れ判定</div><div class="value" id="arare">-</div></div>
+      <div class="kpi"><div class="label">資金目安</div><div class="value" id="money">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section">AI順位</div>
+    <table class="table">
+      <thead><tr><th>順位</th><th>艇</th><th>指数</th><th>展示順位</th></tr></thead>
+      <tbody id="rank"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="section">買い目</div>
+    <div><strong>本線</strong></div>
+    <div id="bets"></div>
+    <div style="margin-top:8px"><strong>穴</strong></div>
+    <div id="holes"></div>
+  </div>
+
+  <div class="card">
+    <div class="section">プロAIコメント</div>
+    <div id="comment" class="notice">データを入力してAI予想を押してください。</div>
+  </div>
+</div>
+
+<script>
+const TRACKS = [
+"桐生","戸田","江戸川","平和島","多摩川","浜名湖","蒲郡","常滑",
+"津","三国","びわこ","住之江","尼崎","鳴門","丸亀","児島",
+"宮島","徳山","下関","若松","芦屋","福岡","唐津","大村"
+];
+
+const TRACK_BIAS = {
+"桐生": {course:[18,11,8,6], invade:"イン強め", chaos:1},
+"戸田": {course:[10,13,11,9], invade:"差し・まくり注意", chaos:3},
+"江戸川": {course:[6,13,14,12], invade:"超波乱寄り", chaos:4},
+"平和島": {course:[15,10,10,8], invade:"まくり注意", chaos:2},
+"多摩川": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"浜名湖": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"蒲郡": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"常滑": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"津": {course:[16,10,8,6], invade:"標準", chaos:2},
+"三国": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"びわこ": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"住之江": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"尼崎": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"鳴門": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"丸亀": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"児島": {course:[16,10,8,6], invade:"標準", chaos:2},
+"宮島": {course:[15,12,8,6], invade:"差し注意", chaos:2},
+"徳山": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"下関": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"若松": {course:[16,10,10,8], invade:"まくり注意", chaos:2},
+"芦屋": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"福岡": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"唐津": {course:[19,10,7,5], invade:"イン寄り", chaos:1},
+"大村": {course:[25,8,4,2], invade:"超イン寄り", chaos:1}
+};
+
+function classBonus(c){
+  if(c==="A1") return 10;
+  if(c==="A2") return 6;
+  if(c==="B1") return 3;
+  return 0;
+}
+function createTracks(){
+  const sel=document.getElementById("track");
+  sel.innerHTML=TRACKS.map(t=>`<option>${t}</option>`).join("");
+  updateTrackInfo();
+}
+function updateTrackInfo(){
+  const t=document.getElementById("track").value;
+  const b=TRACK_BIAS[t];
+  document.getElementById("trackInfo").textContent = `${t}：${b.invade} / 荒れ補正 ${b.chaos}`;
+}
+function createInputs(){
+  let html="";
+  for(let i=1;i<=6;i++){
+    html += `
+    <div class="grid" style="margin-top:6px">
+      <div>${i}</div>
+      <input id="rate${i}" inputmode="decimal">
+      <input id="local${i}" inputmode="decimal">
+      <input id="motor${i}" inputmode="decimal">
+      <input id="boat${i}" inputmode="decimal">
+      <input id="st${i}" inputmode="decimal">
+      <input id="tenji${i}" inputmode="decimal">
+      <select id="class${i}">
+        <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+      </select>
+    </div>`;
+  }
+  document.getElementById("inputs").innerHTML = html;
+}
+function calcTenjiRanks(boats){
+  const valid = boats.filter(x => x.tenji > 0).sort((a,b)=>a.tenji-b.tenji);
+  const rankMap = {};
+  valid.forEach((b, idx)=> rankMap[b.boat] = idx+1);
+  boats.forEach(b => b.tenjiRank = rankMap[b.boat] || 99);
+}
+function tenjiRankBonus(rank){
+  if(rank===1) return 12;
+  if(rank===2) return 8;
+  if(rank===3) return 5;
+  if(rank===4) return 3;
+  return 0;
+}
+function predictEntry(boats){
+  const fast = boats.filter(b => b.st > 0 && b.st <= 0.13).map(b=>b.boat);
+  if(fast.includes(4) || fast.includes(5)) return "進入予測: 123/456 より外まくり注意";
+  if(fast.includes(3)) return "進入予測: 123/456、3コース仕掛け注意";
+  if(fast.includes(2)) return "進入予測: 123/456、2コース差し注意";
+  return "進入予測: 123/456 基本形";
+}
+function calcChaos(topBoat, boats, trackChaos){
+  let chaos = trackChaos;
+  const topST = boats[0]?.st || 0.2;
+  const secondST = boats[1]?.st || 0.2;
+  if(topBoat !== 1) chaos += 1;
+  if(Math.abs(topST-secondST) < 0.02) chaos += 1;
+  const spread = (boats[0]?.ai || 0) - (boats[2]?.ai || 0);
+  if(spread < 8) chaos += 1;
+
+  if(chaos <= 1) return "低";
+  if(chaos === 2) return "中";
+  if(chaos === 3) return "高";
+  return "超高";
+}
+function moneyGuide(honmei, chaos){
+  if(honmei === 1 && chaos === "低") return "2000円";
+  if(chaos === "中") return "1000円";
+  if(chaos === "高") return "700円";
+  return "500円";
+}
+function oddTaste(honmei, chaos){
+  if(honmei === 1 && chaos === "低") return "本命寄り";
+  if(chaos === "中") return "妙味あり";
+  if(chaos === "高" || chaos === "超高") return "穴狙い";
+  return "標準";
+}
+function runAI(){
+  const track = document.getElementById("track").value;
+  const bias = TRACK_BIAS[track];
+  let boats = [];
+
+  for(let i=1;i<=6;i++){
+    const rate = parseFloat(document.getElementById("rate"+i).value) || 0;
+    const local = parseFloat(document.getElementById("local"+i).value) || 0;
+    const motor = parseFloat(document.getElementById("motor"+i).value) || 0;
+    const boat = parseFloat(document.getElementById("boat"+i).value) || 0;
+    const st = parseFloat(document.getElementById("st"+i).value) || 0;
+    const tenji = parseFloat(document.getElementById("tenji"+i).value) || 0;
+    const cls = document.getElementById("class"+i).value;
+
+    boats.push({boat:i, rate, local, motor, boat2:boat, st, tenji, cls});
+  }
+
+  calcTenjiRanks(boats);
+
+  boats = boats.map(b=>{
+    let course = 0;
+    if(b.boat <= 4) course = bias.course[b.boat-1];
+    const stBonus = b.st > 0 ? (0.20 - b.st) * 30 : 0;
+    const tenjiBonus = b.tenji > 0 ? (7 - b.tenji) * 12 : 0;
+    const rankBonus = tenjiRankBonus(b.tenjiRank);
+    const ai = b.rate*8 + b.local*5 + b.motor*1 + b.boat2*0.5 + stBonus + tenjiBonus + rankBonus + course + classBonus(b.cls);
+    return {...b, ai};
+  }).sort((a,b)=>b.ai-a.ai);
+
+  const honmei = boats[0].boat;
+  const chaos = calcChaos(honmei, boats, bias.chaos);
+  const money = moneyGuide(honmei, chaos);
+  const taste = oddTaste(honmei, chaos);
+  const entry = predictEntry(boats);
+
+  document.getElementById("honmei").textContent = honmei + "号艇";
+  document.getElementById("heroHonmei")?.textContent;
+  document.getElementById("heroHonmei");
+  document.getElementById("arare").textContent = chaos;
+  document.getElementById("money").textContent = money;
+
+  document.getElementById("heroHonmei")?.textContent;
+  document.getElementById("heroText")?.textContent;
+
+  document.getElementById("rank").innerHTML = boats.map((b, i)=>
+    `<tr><td class="${i===0?'hot':''}">${i+1}</td><td class="${i===0?'hot':''}">${b.boat}</td><td class="${i===0?'hot':''}">${b.ai.toFixed(1)}</td><td>${b.tenjiRank===99?'-':b.tenjiRank}</td></tr>`
+  ).join("");
+
+  document.getElementById("bets").innerHTML = `
+    <span class="bet">${boats[0].boat}-${boats[1].boat}-${boats[2].boat}</span>
+    <span class="bet">${boats[0].boat}-${boats[2].boat}-${boats[1].boat}</span>
+    <span class="bet">${boats[1].boat}-${boats[0].boat}-${boats[2].boat}</span>
+    <span class="tip">${boats[0].boat}-${boats[1].boat}-${boats[3].boat}</span>
+  `;
+
+  document.getElementById("holes").innerHTML = `
+    <span class="warn">${boats[2].boat}-${boats[0].boat}-${boats[3].boat}</span>
+    <span class="warn">${boats[1].boat}-${boats[3].boat}-${boats[0].boat}</span>
+    <span class="warn">${boats[3].boat}-${boats[0].boat}-${boats[1].boat}</span>
+  `;
+
+  document.getElementById("comment").innerHTML =
+    `場補正: ${track} / ${bias.invade}<br>` +
+    `${entry}<br>` +
+    `荒れ判定AI: ${chaos}<br>` +
+    `オッズ妙味AI: ${taste}<br>` +
+    `資金配分AI: ${money}<br>` +
+    (honmei===1 ? "展開AI: イン逃げ中心" : (honmei>=3 ? "展開AI: まくり展開注意" : "展開AI: 差し展開注意"));
+}
+function fillSample(){
+  document.getElementById("track").value = "大村";
+  document.getElementById("race").value = "10R";
+  [
+    [1,7.20,7.10,48,41,0.14,6.79,"A1"],
+    [2,6.10,5.90,37,35,0.15,6.83,"A1"],
+    [3,5.80,5.50,41,31,0.13,6.81,"A2"],
+    [4,5.50,5.20,39,33,0.12,6.78,"A2"],
+    [5,4.90,4.80,30,29,0.16,6.86,"B1"],
+    [6,4.60,4.50,28,27,0.17,6.90,"B1"]
+  ].forEach(r=>{
+    document.getElementById("rate"+r[0]).value=r[1];
+    document.getElementById("local"+r[0]).value=r[2];
+    document.getElementById("motor"+r[0]).value=r[3];
+    document.getElementById("boat"+r[0]).value=r[4];
+    document.getElementById("st"+r[0]).value=r[5];
+    document.getElementById("tenji"+r[0]).value=r[6];
+    document.getElementById("class"+r[0]).value=r[7];
+  });
+}
+function clearAll(){
+  document.getElementById("race").value = "";
+  for(let i=1;i<=6;i++){
+    ["rate","local","motor","boat","st","tenji"].forEach(k=>document.getElementById(k+i).value="");
+    document.getElementById("class"+i).value="A1";
+  }
+  document.getElementById("honmei").textContent="-";
+  document.getElementById("arare").textContent="-";
+  document.getElementById("money").textContent="-";
+  document.getElementById("rank").innerHTML="";
+  document.getElementById("bets").innerHTML="";
+  document.getElementById("holes").innerHTML="";
+  document.getElementById("comment").textContent="データを入力してAI予想を押してください。";
+}
+function init(){
+  createTracks();
+  createInputs();
+  document.getElementById("track").addEventListener("change", updateTrackInfo);
+  document.getElementById("btnAI").addEventListener("click", runAI);
+  document.getElementById("btnSample").addEventListener("click", fillSample);
+  document.getElementById("btnClear").addEventListener("click", clearAll);
+}
+</script>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>BOAT RACE AI PRO</h1>
+    <p>ULTIMATE / 24場補正 / 展示順位 / 進入予測 / 荒れ判定 / 妙味 / 資金配分</p>
+  </div>
+
+  <div class="card">
+    <div class="section">基本設定</div>
+    <div class="row">
+      <select id="track"></select>
+      <input id="race" placeholder="例: 10R">
+    </div>
+    <div class="helper" id="trackInfo" style="margin-top:10px">場補正を自動適用します。</div>
+  </div>
+
+  <div class="card">
+    <div class="section">入力</div>
+    <div class="grid">
+      <div>艇</div><div>全国</div><div>当地</div><div>M2</div><div>B2</div><div>ST</div><div>展示</div><div>級</div>
+    </div>
+    <div id="inputs"></div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="btnSample">サンプル</button>
+      <button id="btnClear" class="secondary">全消去</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnAI">AI予想</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section">予想結果</div>
+    <div class="kpiWrap">
+      <div class="kpi"><div class="label">本命</div><div class="value" id="honmei">-</div></div>
+      <div class="kpi"><div class="label">荒れ判定</div><div class="value" id="arare">-</div></div>
+      <div class="kpi"><div class="label">資金目安</div><div class="value" id="money">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section">AI順位</div>
+    <table class="table">
+      <thead><tr><th>順位</th><th>艇</th><th>指数</th><th>展示順位</th></tr></thead>
+      <tbody id="rank"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="section">本線</div>
+    <div id="bets"></div>
+  </div>
+
+  <div class="card">
+    <div class="section">穴</div>
+    <div id="holes"></div>
+  </div>
+
+  <div class="card">
+    <div class="section">プロAIコメント</div>
+    <div id="comment" class="notice">データを入力してAI予想を押してください。</div>
+  </div>
+</div>
+<script>init();</script>
+</body>
+</html>
