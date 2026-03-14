@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>競輪AI 公開用</title>
+<meta name="theme-color" content="#2563eb">
+<style>
+:root{--bg:#eef2ff;--card:#fff;--text:#111827;--muted:#64748b;--line:#e5e7eb;--blue:#2563eb;--purple:#7c3aed;--orange:#f97316;--green:#16a34a;--red:#ef4444}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:430px;margin:0 auto;min-height:100vh;padding-bottom:24px}
+.header{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;padding:16px 14px;font-size:20px;font-weight:700}
+.sub{font-size:12px;opacity:.92;margin-top:4px}
+.card{background:var(--card);margin:10px;border-radius:16px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+input,select,textarea,button{width:100%;box-sizing:border-box;font-size:16px;border-radius:10px}
+input,select,textarea{padding:10px;border:1px solid #cbd5e1;background:#fff}
+textarea{min-height:110px;resize:vertical}
+button{padding:12px;border:none;background:var(--orange);color:#fff;font-weight:700}
+.secondary{background:#475569}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+.helper{font-size:13px;color:#334155;background:#eff6ff;border:1px solid #bfdbfe;padding:10px;border-radius:12px}
+.rider{border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px}
+.title{font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.num{display:inline-flex;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-weight:700}
+.pos{font-size:12px;color:#2563eb;background:#eff6ff;padding:3px 8px;border-radius:999px;min-width:56px;text-align:center}
+.kpi{font-size:22px;font-weight:700;text-align:center;margin:6px 0}
+.kpi small{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{border-bottom:1px solid var(--line);padding:6px;text-align:left;font-size:14px}
+.bet{display:inline-block;background:var(--green);color:#fff;padding:6px 10px;border-radius:999px;margin:4px;font-weight:700}
+.warn{display:inline-block;background:var(--red);color:#fff;padding:6px 10px;border-radius:999px;margin:4px;font-weight:700}
+.notice{font-size:12px;color:#334155;background:#f8fafc;border:1px dashed #cbd5e1;padding:10px;border-radius:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    競輪AI
+    <div class="sub">公開用 single-file 版 / GitHub Pages・Netlify 向け</div>
+  </div>
+
+  <div class="card"><div class="helper">このファイル名を <b>index.html</b> にして公開すると、Safariで開いて「ホーム画面に追加」ができます。</div></div>
+
+  <div class="card">
+    <div>WINTICKETコピペ入力</div>
+    <textarea id="pasteBox" placeholder="例:
+1 98.20 3 12 逃
+2 95.40 5 1 追
+3 92.10 2 4 両"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button id="btnPaste">貼り付け解析</button>
+      <button id="btnClear" class="secondary">全消去</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div>競輪場</div>
+    <select id="track"></select>
+    <div class="helper" id="tracknote" style="margin-top:10px">標準バンク</div>
+  </div>
+
+  <div class="card">
+    <div>ライン</div>
+    <input id="line" value="1-2-3 / 4-5 / 6 / 7" placeholder="1-2-3 / 4-5 / 6 / 7">
+    <div class="row" style="margin-top:10px">
+      <button id="btnLine">位置判定</button>
+      <button id="btnSample" class="secondary">例を入れる</button>
+    </div>
+  </div>
+
+  <div class="card" id="riders"></div>
+  <div class="card"><button id="btnAI">AI予想</button></div>
+
+  <div class="card">
+    <div class="kpi"><small>本命</small><span id="honmei">-</span></div>
+    <div class="kpi"><small>ライン崩れ</small><span id="chaos">-</span></div>
+    <div class="kpi"><small>資金目安</small><span id="bankroll">-</span></div>
+  </div>
+
+  <div class="card">
+    <table class="table">
+      <thead><tr><th>順位</th><th>車番</th><th>指数</th><th>位置</th></tr></thead>
+      <tbody id="rank"></tbody>
+    </table>
+  </div>
+
+  <div class="card"><div id="bets"></div><div id="chaosbets"></div></div>
+</div>
+
+<script>
+const TRACKS=["函館","青森","いわき平","弥彦","前橋","取手","宇都宮","大宮","西武園","京王閣","立川","松戸","川崎","平塚","小田原","伊東","静岡","名古屋","岐阜","大垣","豊橋","富山","松阪","四日市","福井","奈良","向日町","和歌山","岸和田","玉野","広島","防府","高松","小松島","高知","松山","小倉","久留米","武雄","佐世保","別府","熊本","その他"];
+const COLORS={1:["#ffffff","#000000"],2:["#111111","#ffffff"],3:["#ef4444","#ffffff"],4:["#2563eb","#ffffff"],5:["#f59e0b","#000000"],6:["#16a34a","#ffffff"],7:["#f97316","#ffffff"],8:["#ec4899","#ffffff"],9:["#7c3aed","#ffffff"]};
+const TRACK={"小倉":{lead:3,ban:8,third:3,single:0,note:"小倉：番手有利"},"武雄":{lead:8,ban:4,third:2,single:0,note:"武雄：先行有利"},"松阪":{lead:4,ban:9,third:3,single:0,note:"松阪：差し有利"},"高知":{lead:7,ban:5,third:2,single:1,note:"高知：先行・捲り有利"},"久留米":{lead:5,ban:7,third:2,single:0,note:"久留米：やや番手有利"},"防府":{lead:7,ban:5,third:2,single:0,note:"防府：先行寄り"},"その他":{lead:5,ban:5,third:2,single:0,note:"標準バンク"}};
+function getTrackBias(track){return TRACK[track]||TRACK["その他"];}
+function norm(line){return (line||"").replace(/　/g,"").replace(/\s+/g,"");}
+function styleBonus(v){if(v==="逃")return 12;if(v==="追")return 9;return 7;}
+function posBonus(pos,bias){if(pos==="先行")return bias.lead;if(pos==="番手")return bias.ban;if(pos==="3番手")return bias.third;return bias.single;}
+function parseLine(line){const clean=norm(line);const groups=clean.split("/").filter(Boolean);const map={};groups.forEach(g=>{const arr=g.split("-").filter(Boolean);if(arr.length===1){map[arr[0]]="単騎";}else if(arr.length===2){map[arr[0]]="先行";map[arr[1]]="番手";}else if(arr.length>=3){map[arr[0]]="先行";map[arr[1]]="番手";map[arr[2]]="3番手";for(let i=3;i<arr.length;i++)map[arr[i]]="3番手";}});return map;}
+function previewLine(){const map=parseLine(document.getElementById("line").value);for(let i=1;i<=9;i++){document.getElementById("pos"+i).textContent=map[String(i)]||"-";}}
+function fillSample(){document.getElementById("line").value="1-2-3 / 4-5 / 6 / 7";[["1","98.2","12","逃","3"],["2","95.4","1","追","5"],["3","92.1","4","両","2"],["4","90.0","9","逃","1"],["5","89.3","0","追","4"],["6","91.0","2","両","2"],["7","88.7","0","追","1"]].forEach(r=>{document.getElementById("score"+r[0]).value=r[1];document.getElementById("b"+r[0]).value=r[2];document.getElementById("style"+r[0]).value=r[3];document.getElementById("s"+r[0]).value=r[4];});previewLine();}
+function clearAll(){document.getElementById("pasteBox").value="";document.getElementById("line").value="";for(let i=1;i<=9;i++){document.getElementById("score"+i).value="";document.getElementById("b"+i).value="";document.getElementById("style"+i).value="逃";document.getElementById("s"+i).value="";document.getElementById("pos"+i).textContent="-";}document.getElementById("honmei").textContent="-";document.getElementById("chaos").textContent="-";document.getElementById("bankroll").textContent="-";document.getElementById("rank").innerHTML="";document.getElementById("bets").innerHTML="";document.getElementById("chaosbets").innerHTML="";}
+function parsePasteLine(line){const parts=line.replace(/　/g," ").trim().split(/\s+/).filter(Boolean);if(parts.length<2)return null;const car=parseInt(parts[0],10);if(!(car>=1&&car<=9))return null;let score="",s="",b="",style="";const nums=parts.slice(1).filter(p=>/^\d+(\.\d+)?$/.test(p));const styles=parts.filter(p=>/^(逃|追|両)$/.test(p));if(nums.length>=3){score=nums[0];s=nums[1];b=nums[2];}else if(nums.length>=2){score=nums[0];b=nums[1];}else if(nums.length>=1){score=nums[0];}if(styles.length)style=styles[0];return {car,score,s,b,style};}
+function autoFillFromPaste(){const raw=document.getElementById("pasteBox").value.trim();if(!raw)return;raw.split(/\n+/).forEach(line=>{const r=parsePasteLine(line);if(!r)return;if(r.score)document.getElementById("score"+r.car).value=r.score;if(r.s)document.getElementById("s"+r.car).value=r.s;if(r.b)document.getElementById("b"+r.car).value=r.b;if(r.style)document.getElementById("style"+r.car).value=r.style;});}
+function runAI(){previewLine();const bias=getTrackBias(document.getElementById("track").value);const riders=[];for(let i=1;i<=9;i++){const score=parseFloat(document.getElementById("score"+i).value);if(isNaN(score))continue;const b=parseFloat(document.getElementById("b"+i).value)||0;const s=parseFloat(document.getElementById("s"+i).value)||0;const style=document.getElementById("style"+i).value||"両";const pos=document.getElementById("pos"+i).textContent;const ai=score+b*3.5+s*2+styleBonus(style)+posBonus(pos,bias);riders.push({car:i,ai,b,style,pos});}if(!riders.length){alert("得点を入力してください");return;}riders.sort((a,b)=>b.ai-a.ai);document.getElementById("honmei").textContent=riders[0].car;const strongLeads=riders.filter(r=>r.style==="逃"&&r.b>=8).length;document.getElementById("chaos").textContent=strongLeads>=2?"高":"低";const top=riders[0].ai;document.getElementById("bankroll").textContent=top>=120?"2000円":top>=110?"1000円":top>=100?"500円":"見送り";document.getElementById("rank").innerHTML=riders.map((r,idx)=>`<tr><td>${idx+1}</td><td>${r.car}</td><td>${r.ai.toFixed(1)}</td><td>${r.pos}</td></tr>`).join("");let bets="";if(riders.length>=3){bets+=`<span class="bet">${riders[0].car}-${riders[1].car}-${riders[2].car}</span>`;bets+=`<span class="bet">${riders[0].car}-${riders[2].car}-${riders[1].car}</span>`;bets+=`<span class="bet">${riders[1].car}-${riders[0].car}-${riders[2].car}</span>`;bets+=`<span class="bet">${riders[1].car}-${riders[2].car}-${riders[0].car}</span>`;}document.getElementById("bets").innerHTML=bets;let chaosbets="";if(strongLeads>=2&&riders.length>=4){chaosbets+=`<span class="warn">${riders[1].car}-${riders[2].car}-${riders[0].car}</span>`;chaosbets+=`<span class="warn">${riders[0].car}-${riders[2].car}-${riders[3].car}</span>`;}document.getElementById("chaosbets").innerHTML=chaosbets;}
+function init(){const sel=document.getElementById("track");sel.innerHTML=TRACKS.map(t=>`<option ${t==="小倉"?"selected":""}>${t}</option>`).join("");document.getElementById("tracknote").textContent=getTrackBias(sel.value).note;const root=document.getElementById("riders");root.innerHTML=Array.from({length:9},(_,idx)=>{const i=idx+1;const c=COLORS[i];return `<div class="rider"><div class="title"><span class="num" style="background:${c[0]};color:${c[1]}">${i}</span>${i}番 <span class="pos" id="pos${i}">-</span></div><div class="grid"><input id="score${i}" inputmode="decimal" placeholder="得点"><input id="b${i}" inputmode="numeric" placeholder="B"><select id="style${i}"><option value="逃">逃</option><option value="追">追</option><option value="両">両</option></select><input id="s${i}" inputmode="numeric" placeholder="S"></div></div>`;}).join("");document.getElementById("track").addEventListener("change",()=>{document.getElementById("tracknote").textContent=getTrackBias(document.getElementById("track").value).note;});document.getElementById("line").addEventListener("input",previewLine);document.getElementById("btnLine").addEventListener("click",previewLine);document.getElementById("btnSample").addEventListener("click",fillSample);document.getElementById("btnAI").addEventListener("click",runAI);document.getElementById("btnPaste").addEventListener("click",autoFillFromPaste);document.getElementById("btnClear").addEventListener("click",clearAll);previewLine();}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
