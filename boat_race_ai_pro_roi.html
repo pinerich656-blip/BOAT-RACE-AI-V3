@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BOAT RACE AI PRO ROI</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eef2ff;margin:0;color:#111}
+.app{max-width:430px;margin:auto;padding-bottom:40px}
+.header{background:linear-gradient(135deg,#0f172a,#1d4ed8);color:#fff;padding:18px;border-bottom-left-radius:20px;border-bottom-right-radius:20px}
+.card{background:#fff;margin:12px;border-radius:16px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.section{font-weight:700;margin-bottom:8px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;font-size:12px}
+input,select,button{width:100%;padding:6px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box}
+button{padding:12px;border:none;border-radius:12px;background:#f97316;color:#fff;font-weight:700;font-size:16px}
+.secondary{background:#475569}
+.kpiWrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}.kpi{background:#f8fbff;border:1px solid #e5e7eb;border-radius:14px;padding:12px;text-align:center}
+.kpi .label{font-size:12px;color:#64748b}.kpi .value{font-size:22px;font-weight:900}
+.table{width:100%;border-collapse:collapse}.table td,.table th{border-bottom:1px solid #e5e7eb;padding:6px;text-align:center}
+.bet,.warn,.tip{padding:6px 10px;border-radius:999px;margin:4px;display:inline-block;color:#fff;font-weight:700}
+.bet{background:#16a34a}.warn{background:#ef4444}.tip{background:#2563eb}
+.notice{font-size:12px;color:#334155;background:#f8fafc;border:1px dashed #cbd5e1;padding:10px;border-radius:12px;line-height:1.6}
+</style></head>
+<body>
+<div class="app">
+<div class="header"><h2 style="margin:0">BOAT RACE AI PRO</h2><div style="font-size:12px;opacity:.9;margin-top:6px">回収率AIつき</div></div>
+
+<div class="card"><div class="section">基本設定</div><div style="display:flex;gap:8px"><select id="track"></select><input id="race" placeholder="例: 住之江 10R"></div></div>
+
+<div class="card"><div class="section">入力</div>
+<div class="grid"><div>艇</div><div>全国</div><div>当地</div><div>M2</div><div>B2</div><div>ST</div><div>展示</div><div>級</div></div>
+<div id="inputs"></div></div>
+
+<div class="card"><div style="display:flex;gap:8px"><button id="btnSample">サンプル</button><button id="btnClear" class="secondary">全消去</button></div><div style="margin-top:8px"><button id="btnAI">AI予想</button></div></div>
+
+<div class="card"><div class="section">予想結果</div><div class="kpiWrap">
+<div class="kpi"><div class="label">本命</div><div class="value" id="honmei">-</div></div>
+<div class="kpi"><div class="label">回収率AI</div><div class="value" id="roi">-</div></div>
+<div class="kpi"><div class="label">判断</div><div class="value" id="act">-</div></div>
+</div></div>
+
+<div class="card"><div class="section">AI順位</div><table class="table"><thead><tr><th>順位</th><th>艇</th><th>指数</th><th>展示順</th></tr></thead><tbody id="rank"></tbody></table></div>
+<div class="card"><div class="section">買い目</div><div id="bets"></div><div id="hole"></div></div>
+<div class="card"><div class="section">AIコメント</div><div id="comment" class="notice">入力してAI予想を押してください。</div></div>
+</div>
+
+<script>
+const TRACKS=["桐生","戸田","江戸川","平和島","多摩川","浜名湖","蒲郡","常滑","津","三国","びわこ","住之江","尼崎","鳴門","丸亀","児島","宮島","徳山","下関","若松","芦屋","福岡","唐津","大村"];
+const BIAS={"大村":[25,8,4,2],"戸田":[10,13,11,9],"江戸川":[6,13,14,12],"_":[19,10,7,5]};
+function cb(c){return c==="A1"?10:c==="A2"?6:c==="B1"?3:0}
+function courseBias(track, boat){const b=BIAS[track]||BIAS["_"]; return boat<=4?b[boat-1]:0;}
+function tenjiRank(arr){let v=arr.filter(x=>x.tenji>0).sort((a,b)=>a.tenji-b.tenji); let m={}; v.forEach((x,i)=>m[x.boat]=i+1); arr.forEach(x=>x.tr=m[x.boat]||99);}
+function trb(r){return r===1?12:r===2?8:r===3?5:r===4?3:0}
+function roiJudge(arr){
+  const top=arr[0], second=arr[1], third=arr[2];
+  const spread1=(top?.ai||0)-(second?.ai||0);
+  const spread2=(second?.ai||0)-(third?.ai||0);
+  if(top?.boat===1 && spread1>=8) return ["A+","買い"];
+  if(spread1>=5 && spread2>=2) return ["A","買い"];
+  if(spread1>=2) return ["B","抑え"];
+  return ["C","見送り"];
+}
+function runAI(){
+  let arr=[], track=trackEl.value;
+  for(let i=1;i<=6;i++){
+    const rate=+document.getElementById("rate"+i).value||0, local=+document.getElementById("local"+i).value||0, motor=+document.getElementById("motor"+i).value||0, boat2=+document.getElementById("boat"+i).value||0, st=+document.getElementById("st"+i).value||0, tenji=+document.getElementById("tenji"+i).value||0, cls=document.getElementById("class"+i).value;
+    arr.push({boat:i,rate,local,motor,boat2,st,tenji,cls});
+  }
+  tenjiRank(arr);
+  arr=arr.map(x=>{let ai=x.rate*8+x.local*5+x.motor+x.boat2*0.5+(x.st>0?(0.20-x.st)*30:0)+(x.tenji>0?(7-x.tenji)*12:0)+trb(x.tr)+courseBias(track,x.boat)+cb(x.cls); return {...x,ai};}).sort((a,b)=>b.ai-a.ai);
+  const [roi, act] = roiJudge(arr);
+  honmei.textContent=arr[0].boat+"号艇"; document.getElementById("roi").textContent=roi; document.getElementById("act").textContent=act;
+  rank.innerHTML=arr.map((x,i)=>`<tr><td>${i+1}</td><td>${x.boat}</td><td>${x.ai.toFixed(1)}</td><td>${x.tr===99?'-':x.tr}</td></tr>`).join("");
+  bets.innerHTML=`<span class="bet">${arr[0].boat}-${arr[1].boat}-${arr[2].boat}</span><span class="bet">${arr[0].boat}-${arr[2].boat}-${arr[1].boat}</span><span class="tip">${arr[1].boat}-${arr[0].boat}-${arr[2].boat}</span>`;
+  hole.innerHTML=`<span class="warn">${arr[2].boat}-${arr[0].boat}-${arr[3].boat}</span>`;
+  comment.textContent=`回収率AI: ${roi} / 判断: ${act} / 本命と2番手の差 ${((arr[0]?.ai||0)-(arr[1]?.ai||0)).toFixed(1)}。`;
+}
+function fillSample(){
+  trackEl.value="大村"; race.value="10R";
+  [[1,7.2,7.1,48,41,0.14,6.79,"A1"],[2,6.1,5.9,37,35,0.15,6.83,"A1"],[3,5.8,5.5,41,31,0.13,6.81,"A2"],[4,5.5,5.2,39,33,0.12,6.78,"A2"],[5,4.9,4.8,30,29,0.16,6.86,"B1"],[6,4.6,4.5,28,27,0.17,6.90,"B1"]].forEach(r=>{
+    ["rate","local","motor","boat","st","tenji"].forEach((k,idx)=>document.getElementById(k+r[0]).value=r[idx+1]);
+    document.getElementById("class"+r[0]).value=r[7];
+  });
+}
+function clearAll(){
+  race.value=""; for(let i=1;i<=6;i++){["rate","local","motor","boat","st","tenji"].forEach(k=>document.getElementById(k+i).value=""); document.getElementById("class"+i).value="A1";}
+  honmei.textContent="-"; document.getElementById("roi").textContent="-"; document.getElementById("act").textContent="-"; rank.innerHTML=""; bets.innerHTML=""; hole.innerHTML=""; comment.textContent="入力してAI予想を押してください。";
+}
+window.addEventListener("DOMContentLoaded",()=>{
+  trackEl.innerHTML=TRACKS.map(t=>`<option>${t}</option>`).join("");
+  inputs.innerHTML=Array.from({length:6},(_,i)=>`<div class="grid" style="margin-top:6px"><div>${i+1}</div><input id="rate${i+1}" inputmode="decimal"><input id="local${i+1}" inputmode="decimal"><input id="motor${i+1}" inputmode="decimal"><input id="boat${i+1}" inputmode="decimal"><input id="st${i+1}" inputmode="decimal"><input id="tenji${i+1}" inputmode="decimal"><select id="class${i+1}"><option>A1</option><option>A2</option><option>B1</option><option>B2</option></select></div>`).join("");
+  btnAI.addEventListener("click",runAI); btnSample.addEventListener("click",fillSample); btnClear.addEventListener("click",clearAll);
+});
+</script>
+</body></html>
