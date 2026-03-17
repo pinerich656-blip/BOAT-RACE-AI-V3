@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOAT RACE AI PRO MAX LITE CORE 改良版</title>
+<style>
+body{margin:0;background:#0b1220;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:430px;margin:auto;padding:10px}
+.card{background:#111827;padding:14px;margin:10px 0;border-radius:16px}
+input,select,button{width:100%;padding:10px;margin-top:6px;border-radius:10px;border:none;box-sizing:border-box}
+input,select{background:#020617;color:#fff}
+button{background:linear-gradient(135deg,#2563eb,#06b6d4);color:#fff;font-weight:800}
+.grid{display:grid;grid-template-columns:40px repeat(5,1fr);gap:6px;margin-top:6px;align-items:center}
+.cap{display:flex;align-items:center;justify-content:center;border-radius:8px;font-weight:900;height:40px}
+.c1{background:#fff;color:#000}.c2{background:#000;color:#fff}.c3{background:#ef4444}.c4{background:#2563eb}.c5{background:#f59e0b;color:#000}.c6{background:#16a34a}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;margin:4px;font-weight:800}
+.good{background:#16a34a}.warn{background:#dc2626}.tip{background:#2563eb}.gold{background:#f59e0b;color:#111}
+.small{font-size:12px;opacity:.85;line-height:1.6}
+.list{margin-top:10px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="card">
+<h2>BOAT RACE AI PRO MAX（簡略改良版）</h2>
+<select id="track">
+<option>桐生</option><option>戸田</option><option>江戸川</option><option>平和島</option><option>多摩川</option>
+<option>浜名湖</option><option>蒲郡</option><option>常滑</option><option>津</option><option>三国</option>
+<option>びわこ</option><option>住之江</option><option>尼崎</option><option>鳴門</option><option>丸亀</option>
+<option>児島</option><option>宮島</option><option>徳山</option><option>下関</option><option>若松</option>
+<option>芦屋</option><option>福岡</option><option>唐津</option><option>大村</option>
+</select>
+<div class="small">入力項目：全国勝率 / モーター2連対率 / 平均ST / 展示 / 級</div>
+</div>
+
+<div class="card">
+<div class="grid">
+<div>艇</div><div>全国</div><div>M2</div><div>ST</div><div>展示</div><div>級</div>
+</div>
+<div id="inputs"></div>
+</div>
+
+<div class="card"><button onclick="runAI()">AI予想</button></div>
+<div class="card"><div id="result">結果待ち</div></div>
+</div>
+
+<script>
+const TRACK_BIAS = {
+  "桐生": {in:56, bias:[12,5,3,1,0,0]},
+  "戸田": {in:48, bias:[7,9,7,5,0,0]},
+  "江戸川": {in:43, bias:[4,9,10,8,0,0]},
+  "平和島": {in:51, bias:[9,6,4,3,0,0]},
+  "多摩川": {in:54, bias:[10,6,4,2,0,0]},
+  "浜名湖": {in:53, bias:[10,6,4,2,0,0]},
+  "蒲郡": {in:57, bias:[13,5,3,1,0,0]},
+  "常滑": {in:56, bias:[12,5,3,1,0,0]},
+  "津": {in:54, bias:[10,6,4,2,0,0]},
+  "三国": {in:55, bias:[11,6,3,2,0,0]},
+  "びわこ": {in:53, bias:[10,6,4,2,0,0]},
+  "住之江": {in:52, bias:[9,6,4,3,0,0]},
+  "尼崎": {in:55, bias:[11,6,3,2,0,0]},
+  "鳴門": {in:57, bias:[13,5,3,1,0,0]},
+  "丸亀": {in:58, bias:[14,5,3,1,0,0]},
+  "児島": {in:54, bias:[10,6,4,2,0,0]},
+  "宮島": {in:55, bias:[11,6,3,2,0,0]},
+  "徳山": {in:58, bias:[14,5,3,1,0,0]},
+  "下関": {in:57, bias:[13,5,3,1,0,0]},
+  "若松": {in:56, bias:[12,5,3,1,0,0]},
+  "芦屋": {in:58, bias:[14,5,3,1,0,0]},
+  "福岡": {in:55, bias:[11,6,3,2,0,0]},
+  "唐津": {in:57, bias:[13,5,3,1,0,0]},
+  "大村": {in:60, bias:[16,5,3,1,0,0]}
+};
+
+function makeInputs(){
+  let html="";
+  for(let i=1;i<=6;i++){
+    html += `
+    <div class="grid">
+      <div class="cap c${i}">${i}</div>
+      <input id="rate${i}" inputmode="decimal" pattern="[0-9.]*">
+      <input id="m2${i}" inputmode="decimal" pattern="[0-9.]*">
+      <input id="st${i}" inputmode="decimal" pattern="[0-9.]*">
+      <input id="tenji${i}" inputmode="decimal" pattern="[0-9.]*">
+      <select id="cls${i}">
+        <option>A1</option><option>A2</option><option>B1</option><option>B2</option>
+      </select>
+    </div>`;
+  }
+  document.getElementById("inputs").innerHTML = html;
+}
+
+function classBonus(c){ return c==="A1"?12:c==="A2"?8:c==="B1"?4:0; }
+function trackBias(track,boat){ return (TRACK_BIAS[track]?.bias?.[boat-1]) || 0; }
+function getInRate(track){ return (TRACK_BIAS[track]?.in) || 55; }
+
+function runAI(){
+  const track = document.getElementById("track").value;
+  let arr=[];
+
+  for(let i=1;i<=6;i++){
+    const rate=+document.getElementById("rate"+i).value||0;
+    const m2=+document.getElementById("m2"+i).value||0;
+    const st=+document.getElementById("st"+i).value||0;
+    const tenji=+document.getElementById("tenji"+i).value||0;
+    const cls=document.getElementById("cls"+i).value;
+
+    let score = rate*10 + m2*0.8 + (st>0 ? (0.20-st)*40 : 0) + (tenji>0 ? (7-tenji)*10 : 0) + classBonus(cls) + trackBias(track,i);
+    arr.push({boat:i,score,st,tenji,m2,rate,cls});
+  }
+
+  arr.sort((a,b)=>b.score-a.score);
+
+  let scenario="イン逃げ";
+  const fastST = arr.filter(x=>x.st>0 && x.st<=0.13).length;
+  if(arr[0].boat!==1) scenario="波乱";
+  if(fastST>=2) scenario="まくり・差し警戒";
+  if(arr[0].boat===1 && getInRate(track)>=58) scenario="イン逃げ濃厚";
+
+  let diff=arr[0].score-arr[2].score;
+  let manshu=0;
+  if(diff<30) manshu+=40;
+  if(arr[0].boat!==1) manshu+=20;
+  if(fastST>=2) manshu+=20;
+  manshu=Math.min(100,manshu);
+
+  const inRate = getInRate(track);
+
+  let bets = [
+    `${arr[0].boat}-${arr[1].boat}-${arr[2].boat}`,
+    `${arr[0].boat}-${arr[2].boat}-${arr[1].boat}`,
+    `${arr[1].boat}-${arr[0].boat}-${arr[2].boat}`,
+    `${arr[1].boat}-${arr[2].boat}-${arr[0].boat}`,
+    `${arr[0].boat}-${arr[1].boat}-${arr[3].boat}`,
+    `${arr[0].boat}-${arr[3].boat}-${arr[1].boat}`
+  ];
+
+  if(manshu>=60){
+    bets.push(`${arr[2].boat}-${arr[0].boat}-${arr[1].boat}`);
+    bets.push(`${arr[3].boat}-${arr[0].boat}-${arr[2].boat}`);
+  } else {
+    bets.push(`${arr[0].boat}-${arr[2].boat}-${arr[3].boat}`);
+  }
+
+  bets = [...new Set(bets)].slice(0,8);
+
+  document.getElementById("result").innerHTML = `
+    <h3>本命：${arr[0].boat}号艇</h3>
+    <div class="badge good">展開：${scenario}</div>
+    <div class="badge warn">万舟率：${manshu}%</div>
+    <div class="badge gold">イン逃げ率：${inRate}%</div>
+    <div class="small">場別のイン傾向を補正して表示しています。</div>
+    <div class="list">
+      ${bets.map(b=>`<div class="badge tip">${b}</div>`).join("")}
+    </div>
+  `;
+}
+
+makeInputs();
+</script>
+</body>
+</html>
