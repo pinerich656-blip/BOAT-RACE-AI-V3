@@ -132,6 +132,23 @@ window.addEventListener("DOMContentLoaded",()=>{document.getElementById("track")
     }
   }
 });
+  window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(location.search);
+
+  for (let i = 1; i <= 6; i++) {
+    const rate = params.get("rate" + i);
+    const tenji = params.get("tenji" + i);
+    const st = params.get("st" + i);
+
+    const rateEl = document.getElementById("rate" + i);
+    const tenjiEl = document.getElementById("tenji" + i);
+    const stEl = document.getElementById("st" + i);
+
+    if (rate && rateEl) rateEl.value = rate;
+    if (tenji && tenjiEl) tenjiEl.value = tenji;
+    if (st && stEl) stEl.value = st;
+  }
+});
 </script>
 </body>
 </html>
