@@ -121,6 +121,17 @@ function runAI(){const track=document.getElementById("track").value; const mansh
 function fillSample(){document.getElementById("track").value="住之江"; document.getElementById("race").value="10R"; document.getElementById("manshuToggle").checked=true; const data=[[1,7.2,7.1,48,62,0.14,6.79,"A1"],[2,6.1,5.9,37,55,0.15,6.83,"A1"],[3,5.8,5.5,41,57,0.13,6.81,"A2"],[4,5.5,5.2,39,54,0.12,6.78,"A2"],[5,4.9,4.8,30,45,0.16,6.86,"B1"],[6,4.6,4.5,28,41,0.17,6.90,"B1"]]; data.forEach(r=>{document.getElementById("rate"+r[0]).value=r[1];document.getElementById("local"+r[0]).value=r[2];document.getElementById("m2"+r[0]).value=r[3];document.getElementById("m3"+r[0]).value=r[4];document.getElementById("st"+r[0]).value=r[5];document.getElementById("tenji"+r[0]).value=r[6];document.getElementById("cls"+r[0]).value=r[7];});}
 function clearAll(){document.getElementById("race").value=""; document.getElementById("manshuToggle").checked=false; makeInputs(); document.getElementById("hero").textContent="-"; document.getElementById("heroSub").textContent="BOAT RACE AI PRO MAX"; document.getElementById("honmei").textContent="-"; document.getElementById("roi").textContent="-"; document.getElementById("act").textContent="-"; document.getElementById("entryBadge").textContent="進入予測 -"; document.getElementById("mark1").textContent="1マーク展開 -"; document.getElementById("trustBadge").textContent="イン逃げ確率 -"; document.getElementById("motorBadge").textContent="モーター評価 -"; document.getElementById("tenjiBadge").textContent="展示差アラート -"; document.getElementById("roiBadge").textContent="回収率AI -"; document.getElementById("manshuComment").textContent="万舟コメント -"; document.getElementById("trustFill").style.width="0%"; document.getElementById("trustStars").textContent="☆☆☆☆☆"; document.getElementById("trustText").textContent="信頼度 -"; document.getElementById("manshuFill").style.width="0%"; document.getElementById("manshuStars").textContent="☆☆☆☆☆"; document.getElementById("manshuText").textContent="万舟警戒度 -"; document.getElementById("rank").innerHTML=""; document.getElementById("bets").innerHTML=""; document.getElementById("holes").innerHTML=""; document.getElementById("comment").textContent="入力してAI予想を押してください。";}
 window.addEventListener("DOMContentLoaded",()=>{document.getElementById("track").innerHTML=TRACKS.map(t=>`<option>${t}</option>`).join(""); makeInputs(); document.getElementById("sampleBtn").addEventListener("click",fillSample); document.getElementById("clearBtn").addEventListener("click",clearAll); document.getElementById("aiBtn").addEventListener("click",runAI);});
+  window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(location.search);
+
+  for (let i = 1; i <= 6; i++) {
+    const v = params.get("r" + i);
+    if (v) {
+      const el = document.getElementById("rate" + i);
+      if (el) el.value = v;
+    }
+  }
+});
 </script>
 </body>
 </html>
