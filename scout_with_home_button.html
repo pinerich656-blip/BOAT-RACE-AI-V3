@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BOAT RACE AI SCOUT</title>
+<meta name="theme-color" content="#0b1220">
+<style>
+:root{--line:#243a63;--text:#edf4ff;--muted:#9fb3d9;--blue:#2563eb;--cyan:#06b6d4;--green:#16a34a;--gold:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at top left,#16335f 0%,#08101c 42%),linear-gradient(180deg,#08101c,#091221)}
+.app{max-width:430px;margin:0 auto;min-height:100vh;padding:0 0 94px}
+.topbar{position:sticky;top:0;z-index:20;padding:10px 12px;background:rgba(8,16,28,.9);backdrop-filter:blur(8px)}
+.topbtn{width:auto;padding:10px 14px;border:none;border-radius:14px;color:#fff;font-weight:800;background:linear-gradient(135deg,#2563eb,#06b6d4)}
+.header{padding:8px 14px 22px;background:linear-gradient(135deg,#0f172a,#1d4ed8 58%,#06b6d4);border-bottom-left-radius:24px;border-bottom-right-radius:24px;box-shadow:0 12px 26px rgba(0,0,0,.35)}
+.header h1{margin:0;font-size:24px}.header p{margin:6px 0 0;font-size:12px;opacity:.95}
+.card{margin:12px;padding:14px;border-radius:20px;background:linear-gradient(180deg,rgba(18,29,52,.98),rgba(11,20,36,.98));border:1px solid var(--line);box-shadow:0 10px 24px rgba(0,0,0,.26)}
+.section{font-size:14px;font-weight:800;margin-bottom:8px}
+.notice{font-size:12px;line-height:1.7;background:#091221;border:1px dashed #39527d;padding:12px;border-radius:16px;color:#dbeafe}
+.row{display:flex;gap:8px}.row>*{flex:1}
+input,button{width:100%;font-size:16px;border-radius:14px;box-sizing:border-box}
+input{padding:10px;color:var(--text);background:#091221;border:1.5px solid #2b4167}
+button{padding:12px;border:none;color:#fff;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--cyan))}
+.btn-sub{background:linear-gradient(135deg,#475569,#334155)}
+.grid{display:grid;gap:6px;align-items:center;margin-top:6px;grid-template-columns:42px repeat(3,1fr)}
+.head{font-size:11px;text-align:center;color:#bfd0f1;font-weight:700}
+.cap{height:40px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-weight:900;border:2px solid rgba(255,255,255,.15)}
+.c1{background:#fff;color:#111827}.c2{background:#111827;color:#fff}.c3{background:#ef4444;color:#fff}.c4{background:#2563eb;color:#fff}.c5{background:#f59e0b;color:#111827}.c6{background:#16a34a;color:#fff}
+.badge{display:inline-block;padding:7px 11px;border-radius:999px;margin:4px;color:#fff;font-weight:800}
+.good{background:linear-gradient(135deg,#059669,#16a34a)}.warn{background:linear-gradient(135deg,#dc2626,#f97316)}.gold{background:linear-gradient(135deg,#f59e0b,#facc15);color:#111827}.tip{background:linear-gradient(135deg,#2563eb,#7c3aed)}
+.raceBox{margin-top:10px;padding:12px;border-radius:16px;background:#0b1324;border:1px solid #27405d}
+.small{font-size:12px;color:var(--muted);line-height:1.6}
+.listItem{padding:10px;border-bottom:1px solid #223454}.listItem:last-child{border-bottom:none}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(8,16,28,.95);backdrop-filter:blur(10px);border-top:1px solid #29405f;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.bottomwrap{max-width:430px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.navbtn{display:block;text-decoration:none;text-align:center;color:#fff;font-weight:800;padding:12px 8px;border-radius:16px;background:#111827;border:1px solid #29405f}
+.navbtn.active{background:linear-gradient(135deg,#f59e0b,#f97316)}
+</style>
+</head>
+<body>
+<div class="topbar"><button class="topbtn" onclick="goHome()">🏠 トップに戻る</button></div>
+
+<div class="app">
+<div class="header"><h1>BOAT RACE AI SCOUT</h1><p>勝負レース自動抽出 / 資金配分 / 戻るボタン付き完成版</p></div>
+
+<div class="card"><div class="section">使い方</div><div class="notice">1レースごとに「全国 / 展示 / ST」だけ入れて追加します。何レースか入れたら「勝負レース抽出」を押してください。買う価値があるレースだけを拾って、配分の目安まで出します。</div></div>
+
+<div class="card">
+<div class="section">レース入力</div>
+<input id="raceName" placeholder="例: 住之江 10R">
+<div class="grid"><div class="head">艇</div><div class="head">全国</div><div class="head">展示</div><div class="head">ST</div></div>
+<div id="inputs"></div>
+<div class="row" style="margin-top:10px"><button id="addBtn">このレースを追加</button><button id="clearBtn" class="btn-sub">入力クリア</button></div>
+</div>
+
+<div class="card">
+<div class="section">登録レース</div>
+<div id="raceList" class="small">まだありません。</div>
+<div class="row" style="margin-top:10px"><button id="scanBtn">勝負レース抽出</button><button id="resetBtn" class="btn-sub">全消去</button></div>
+</div>
+
+<div class="card">
+<div class="section">資金配分</div>
+<input id="budget" inputmode="numeric" placeholder="予算 例: 10000">
+<button id="allocBtn" style="margin-top:8px">資金配分AI</button>
+<div id="alloc" class="small" style="margin-top:8px">抽出後に配分できます。</div>
+</div>
+
+<div class="card"><div class="section">抽出結果</div><div id="summary" class="notice">レースを追加してから抽出してください。</div></div>
+<div class="card"><div class="section">一覧</div><div id="results" class="small">-</div></div>
+</div>
+
+<div class="bottomnav">
+  <div class="bottomwrap">
+    <a class="navbtn" href="lite.html">LITE</a>
+    <a class="navbtn" href="pro.html">PRO</a>
+    <a class="navbtn active" href="scout.html">SCOUT</a>
+  </div>
+</div>
+
+<script>
+const races=[];
+function goHome(){ location.href="index.html"; }
+function capClass(i){ return "c"+i; }
+function makeInputs(){ let html=""; for(let i=1;i<=6;i++){ html += `<div class="grid" style="margin-top:6px"><div class="cap ${capClass(i)}">${i}</div><input id="rate${i}" inputmode="decimal" pattern="[0-9.]*" placeholder="全国"><input id="tenji${i}" inputmode="decimal" pattern="[0-9.]*" placeholder="展示"><input id="st${i}" inputmode="decimal" pattern="[0-9.]*" placeholder="ST"></div>`; } document.getElementById("inputs").innerHTML=html; }
+function calcRace(name){
+  let arr=[];
+  for(let i=1;i<=6;i++){
+    const rate=+document.getElementById("rate"+i).value||0;
+    const tenji=+document.getElementById("tenji"+i).value||0;
+    const st=+document.getElementById("st"+i).value||0;
+    const score=rate*10+(tenji>0?(7-tenji)*5:0)+(st>0?(0.20-st)*50:0);
+    arr.push({boat:i,rate,tenji,st,score});
+  }
+  arr.sort((a,b)=>b.score-a.score);
+  const diffTop3=(arr[0].score-arr[2].score);
+  const bestTenji=[...arr].filter(x=>x.tenji>0).sort((a,b)=>a.tenji-b.tenji);
+  let tenjiDiff=0; if(bestTenji.length>=2) tenjiDiff=bestTenji[1].tenji-bestTenji[0].tenji;
+  const fastCount=arr.filter(x=>x.st>0&&x.st<=0.13).length;
+  let manshu=0;
+  if(diffTop3<20) manshu+=45; else if(diffTop3<50) manshu+=25;
+  if(tenjiDiff>=0.06) manshu+=20; else if(tenjiDiff>=0.03) manshu+=10;
+  if(fastCount>=2) manshu+=18;
+  if(arr[0].boat!==1) manshu+=12;
+  manshu=Math.max(0,Math.min(100,manshu));
+  let level="見送り";
+  if(diffTop3>=50&&manshu<35) level="本線向き";
+  else if(manshu>=65) level="万舟候補";
+  else if(manshu>=40||diffTop3>=35) level="勝負候補";
+  return {name,arr,diffTop3,tenjiDiff,fastCount,manshu,level,honmei:arr[0].boat,bets:makeBets(arr,manshu,diffTop3)};
+}
+function makeBets(arr,manshu,diffTop3){
+  if(manshu>=65) return [`${arr[2].boat}-${arr[0].boat}-${arr[1].boat}`,`${arr[3].boat}-${arr[0].boat}-${arr[2].boat}`,`${arr[1].boat}-${arr[2].boat}-${arr[0].boat}`];
+  if(manshu>=40||diffTop3<50) return [`${arr[0].boat}-${arr[2].boat}-${arr[1].boat}`,`${arr[1].boat}-${arr[0].boat}-${arr[2].boat}`];
+  return [`${arr[0].boat}-${arr[1].boat}-${arr[2].boat}`,`${arr[0].boat}-${arr[2].boat}-${arr[1].boat}`];
+}
+function addRace(){ const name=document.getElementById("raceName").value.trim(); if(!name){ alert("レース名を入れてください。"); return; } races.push(calcRace(name)); refreshRaceList(); clearForm(); }
+function clearForm(){ document.getElementById("raceName").value=""; for(let i=1;i<=6;i++){ document.getElementById("rate"+i).value=""; document.getElementById("tenji"+i).value=""; document.getElementById("st"+i).value=""; } }
+function refreshRaceList(){
+  const box=document.getElementById("raceList");
+  if(!races.length){ box.textContent="まだありません。"; return; }
+  box.innerHTML=races.map((r,i)=>`<div class="raceBox"><b>${i+1}. ${r.name}</b><br><span class="badge ${r.level==="見送り"?"tip":r.level==="本線向き"?"good":"gold"}">${r.level}</span><span class="badge warn">万舟 ${r.manshu}%</span><span class="badge good">本命 ${r.honmei}号艇</span></div>`).join("");
+}
+function sortedRaces(){ return [...races].sort((a,b)=>{ const w=x=>x.level==="万舟候補"?3:x.level==="勝負候補"?2:x.level==="本線向き"?1:0; return (w(b)-w(a))||(b.manshu-a.manshu)||(b.diffTop3-a.diffTop3); }); }
+function scanRaces(){
+  if(!races.length){ document.getElementById("summary").textContent="先にレースを追加してください。"; return; }
+  const sorted=sortedRaces(); const picked=sorted.filter(x=>x.level!=="見送り"); const top=picked.slice(0,3);
+  if(!top.length){ document.getElementById("summary").innerHTML='今回は <b>見送り寄り</b> です。買うなら本線だけに絞るのが無難です。'; }
+  else {
+    document.getElementById("summary").innerHTML=top.map((r,i)=>`<div class="raceBox"><b>${i+1}位 ${r.name}</b><br><span class="badge ${r.level==="万舟候補"?"warn":r.level==="勝負候補"?"gold":"good"}">${r.level}</span><span class="badge tip">本命 ${r.honmei}号艇</span><span class="badge warn">万舟 ${r.manshu}%</span><div class="small">上位差 ${r.diffTop3.toFixed(1)} / 展示差 ${r.tenjiDiff.toFixed(2)} / 速ST ${r.fastCount}艇</div><div style="margin-top:6px">${r.bets.map(b=>`<span class="badge good">${b}</span>`).join("")}</div></div>`).join("");
+  }
+  document.getElementById("results").innerHTML=sorted.map((r,i)=>`<div class="listItem"><b>${i+1}. ${r.name}</b><br><span class="badge ${r.level==="見送り"?"tip":r.level==="本線向き"?"good":"gold"}">${r.level}</span><span class="badge warn">万舟 ${r.manshu}%</span><span class="badge good">本命 ${r.honmei}号艇</span></div>`).join("");
+}
+function allocateBudget(){
+  if(!races.length){ document.getElementById("alloc").textContent="先にレースを追加してください。"; return; }
+  const budget=+document.getElementById("budget").value||0; if(!budget){ document.getElementById("alloc").textContent="予算を入れてください。"; return; }
+  const picked=sortedRaces().filter(x=>x.level!=="見送り"); if(!picked.length){ document.getElementById("alloc").textContent="配分対象がありません。"; return; }
+  const weights=picked.map(r=>r.level==="万舟候補"?1:r.level==="勝負候補"?2:3); const totalWeight=weights.reduce((a,b)=>a+b,0);
+  document.getElementById("alloc").innerHTML=picked.map((r,idx)=>`<div class="listItem"><b>${r.name}</b><br><span class="badge ${r.level==="万舟候補"?"warn":r.level==="勝負候補"?"gold":"good"}">${r.level}</span><span class="badge tip">${Math.floor(budget*(weights[idx]/totalWeight))}円</span></div>`).join("");
+}
+document.getElementById("addBtn").addEventListener("click",addRace);
+document.getElementById("clearBtn").addEventListener("click",clearForm);
+document.getElementById("scanBtn").addEventListener("click",scanRaces);
+document.getElementById("allocBtn").addEventListener("click",allocateBudget);
+document.getElementById("resetBtn").addEventListener("click",()=>{races.length=0; refreshRaceList(); document.getElementById("summary").textContent="レースを追加してから抽出してください。"; document.getElementById("results").textContent="-"; document.getElementById("alloc").textContent="抽出後に配分できます。"; clearForm();});
+makeInputs();
+</script>
+</body>
+</html>
