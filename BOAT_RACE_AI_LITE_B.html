@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOAT RACE AI LITE B</title>
+<style>
+body{font-family:-apple-system;background:#0b1220;color:#fff;margin:0;padding:10px}
+.card{background:#111827;border-radius:14px;padding:12px;margin-bottom:10px}
+input,button{width:100%;margin:4px 0;padding:10px;border-radius:10px;border:none}
+button{background:#2563eb;color:#fff;font-weight:bold}
+.result{font-size:18px;margin-top:10px}
+.badge{display:inline-block;padding:6px 10px;border-radius:20px;margin:4px}
+.good{background:#16a34a}.warn{background:#dc2626}.mid{background:#f59e0b}
+</style>
+</head>
+<body>
+
+<div class="card">
+<div>簡易入力（得点だけ）</div>
+<div id="inputs"></div>
+<button onclick="calc()">AI予想</button>
+</div>
+
+<div class="card">
+<div>結果</div>
+<div id="rank"></div>
+<div id="manshu"></div>
+<div id="bets" class="result"></div>
+</div>
+
+<script>
+function make(){
+ let html="";
+ for(let i=1;i<=6;i++){
+  html+=`<input id="r${i}" placeholder="${i}号艇 得点">`
+ }
+ document.getElementById("inputs").innerHTML=html;
+}
+make();
+
+function calc(){
+ let arr=[];
+ for(let i=1;i<=6;i++){
+  let v=+document.getElementById("r"+i).value||0;
+  arr.push({boat:i,score:v});
+ }
+ arr.sort((a,b)=>b.score-a.score);
+
+ document.getElementById("rank").innerHTML=
+  arr.map((x,i)=>`${i+1}位 ${x.boat}号艇`).join("<br>");
+
+ // 万舟判定
+ let diff = arr[0].score - arr[2].score;
+ let level="";
+ let bets=[];
+
+ if(diff<5){
+   level="特大警戒";
+   bets=[
+     `${arr[2].boat}-${arr[0].boat}-${arr[1].boat}`,
+     `${arr[3].boat}-${arr[0].boat}-${arr[2].boat}`,
+     `${arr[1].boat}-${arr[2].boat}-${arr[0].boat}`
+   ];
+ }else if(diff<10){
+   level="警戒";
+   bets=[
+     `${arr[0].boat}-${arr[2].boat}-${arr[1].boat}`,
+     `${arr[1].boat}-${arr[0].boat}-${arr[2].boat}`
+   ];
+ }else{
+   level="低";
+   bets=[
+     `${arr[0].boat}-${arr[1].boat}-${arr[2].boat}`,
+     `${arr[0].boat}-${arr[2].boat}-${arr[1].boat}`
+   ];
+ }
+
+ document.getElementById("manshu").innerHTML=
+  `<span class="badge ${diff<5?"warn":diff<10?"mid":"good"}">万舟:${level}</span>`;
+
+ document.getElementById("bets").innerHTML=
+  bets.map(b=>`<span class="badge good">${b}</span>`).join("");
+}
+</script>
+
+</body>
+</html>
