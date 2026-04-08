@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOAT RACE 縦並びデータ整形テスト</title>
+<style>
+body{margin:0;padding:16px;background:#0b1220;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:900px;margin:0 auto}
+.card{background:#121c33;border:1px solid #243352;border-radius:16px;padding:14px;margin:12px 0}
+textarea{width:100%;min-height:260px;background:#08101d;color:#fff;border:1px solid #243352;border-radius:12px;padding:12px;box-sizing:border-box;font-size:14px;line-height:1.6}
+button{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563eb,#06b6d4);color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.small{font-size:12px;color:#9fb0d1;line-height:1.7}
+.ok{color:#86efac}.ng{color:#fca5a5}
+pre{white-space:pre-wrap;word-break:break-word;background:#08101d;border:1px solid #243352;border-radius:12px;padding:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2>縦並び元データ整形テスト</h2>
+    <div class="small">まずはここで、元データが読めるかだけ確認します。<br>貼り付けたあと、下の<strong>「元データを整形」</strong>を押してください。</div>
+  </div>
+
+  <div class="card">
+    <textarea id="raw" placeholder="ここに縦並び元データをそのまま貼り付け"></textarea>
+    <button id="run">元データを整形</button>
+  </div>
+
+  <div class="card">
+    <div id="status">結果待ち</div>
+  </div>
+
+  <div class="card">
+    <h3>整形結果</h3>
+    <textarea id="out" placeholder="ここに整形結果が出ます"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>抽出した今節成績</h3>
+    <pre id="forms">結果待ち</pre>
+  </div>
+</div>
+
+<script>
+function splitLines(text){
+  return String(text||"").split(/\r?\n/).map(s=>s.replace(/\u00A0/g," ").trim()).filter(Boolean);
+}
+function parsePercentLine(s){
+  const m = String(s||"").match(/-?\d+(?:\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+function avg(arr){
+  if(!arr.length) return 0;
+  return arr.reduce((a,b)=>a+b,0)/arr.length;
+}
+function cleanVerticalLines(lines){
+  return lines
+    .map(s => String(s||"").replace(/\uFFFC/g,"").trim())
+    .filter(Boolean)
+    .filter(s => !/^早見\d*$/.test(s))
+    .filter(s => s !== "節間成績")
+    .filter(s => !["初日","2日目","3日目","4日目","5日目","最終日"].includes(s))
+    .filter(s => !/^枠写真レーサー/.test(s));
+}
+function normalizeWide(s){
+  return String(s||"")
+    .replace(/Ｆ/g,"F")
+    .replace(/Ｌ/g,"L")
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/\s+/g,"")
+    .toUpperCase();
+}
+function parseFormResults(block){
+  const finishes = [];
+  for(let i=0;i<block.length;i++){
+    const cur = String(block[i]||"").trim();
+    const prev = String(block[i-1]||"").trim();
+    if(cur === "着" && /^[1-6]$/.test(prev)){
+      finishes.push(parseInt(prev,10));
+      continue;
+    }
+    const m = cur.match(/([1-6])\s*着$/);
+    if(m) finishes.push(parseInt(m[1],10));
+  }
+  return finishes;
+}
+function tryConvertVerticalRaceText(lines){
+  const cleaned = cleanVerticalLines(lines);
+  const norm = s => normalizeWide(s);
+
+  const fIdxs = [];
+  for(let i=0;i<cleaned.length;i++){
+    if(/^F\dL\d$/.test(norm(cleaned[i]))) fIdxs.push(i);
+  }
+  if(fIdxs.length < 6) return {error:"F0L0 / F1L0 の位置を6艇分見つけられませんでした。"};
+
+  const rowsByBoat = Array(6).fill("");
+  const formsByBoat = Array(6).fill("");
+
+  for(let b=0;b<6;b++){
+    const s = fIdxs[b];
+    const e = b < 5 ? fIdxs[b+1] : cleaned.length;
+    const block = cleaned.slice(s, e);
+
+    const fRaw = norm(block[0]);
+    const numeric = [];
+    for(let i=1;i<Math.min(block.length, 20);i++){
+      const v = parsePercentLine(block[i]);
+      if(v !== null) numeric.push(v);
+    }
+    if(numeric.length < 7) return {error:(b+1)+"艇目の数値が足りません。"};
+
+    const st = numeric[0] ?? 0;
+    const nationalWin = numeric[2] ?? 0;
+    const localWin = numeric[5] ?? nationalWin;
+
+    const noIdxs = [];
+    for(let i=0;i<block.length;i++){
+      if(/^No\.$/i.test(String(block[i]).trim())) noIdxs.push(i);
+    }
+    if(noIdxs.length < 2) return {error:(b+1)+"艇目のモーター/ボート欄を見つけられません。"};
+
+    const motor2 = parsePercentLine(block[noIdxs[0]+2]) ?? 0;
+    const boat2 = parsePercentLine(block[noIdxs[1]+2]) ?? 0;
+
+    const finishes = parseFormResults(block);
+    const avgRank = finishes.length ? avg(finishes) : 0;
+    const formText = finishes.slice(0,8).join(",");
+
+    const f = fRaw === "F0L0" ? "なし" : (fRaw.startsWith("F1") ? "F1" : (fRaw.startsWith("F2") ? "F2" : "なし"));
+    const boat = b + 1;
+
+    rowsByBoat[boat-1] = [
+      boat,
+      f,
+      Number(st || 0).toFixed(2),
+      Number(nationalWin || 0).toFixed(2),
+      Number(motor2 || 0).toFixed(2),
+      Number(st || 0).toFixed(2),
+      Number(boat2 || 0).toFixed(2),
+      "0/0/0",
+      Number(localWin || 0).toFixed(2),
+      Number(st || 0).toFixed(2),
+      Number(avgRank || 0).toFixed(1)
+    ].join(",");
+
+    formsByBoat[boat-1] = formText || "抽出なし";
+  }
+
+  return {rows: rowsByBoat, forms: formsByBoat};
+}
+
+document.getElementById("run").addEventListener("click", () => {
+  const raw = document.getElementById("raw").value;
+  const status = document.getElementById("status");
+  const out = document.getElementById("out");
+  const forms = document.getElementById("forms");
+
+  const lines = splitLines(raw);
+  const parsed = tryConvertVerticalRaceText(lines);
+
+  if(parsed.error){
+    status.innerHTML = '<span class="ng">整形失敗:</span> ' + parsed.error;
+    out.value = "";
+    forms.textContent = "結果待ち";
+    return;
+  }
+
+  const result = "艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順\n\n" + parsed.rows.join("\n");
+  out.value = result;
+  forms.textContent = parsed.forms.map((v,i)=> (i+1) + "号艇: " + v).join("\n");
+  status.innerHTML = '<span class="ok">整形成功</span>';
+});
+</script>
+</body>
+</html>
