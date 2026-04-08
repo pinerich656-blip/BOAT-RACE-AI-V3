@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOAT RACE AI v8.3 + v8 シンプル版（最終ロジック強化版）</title>
+<style>
+:root{
+  --bg:#0b1220;--card:#121c33;--line:#243352;--text:#fff;--muted:#9fb0d1;
+  --blue:#2563eb;--cyan:#06b6d4;--green:#16a34a;--gray:#374151;--violet:#7c3aed
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#08111f,#0d1730);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:1120px;margin:auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
+h1,h2,h3{margin:0}
+.small{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}
+textarea,input,select{width:100%;border:none;border-radius:12px;padding:12px;background:#08101d;color:#fff;border:1px solid #243352;font-size:14px}
+textarea{min-height:150px;resize:vertical;line-height:1.55}
+button{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;font-size:16px;font-weight:800;margin-top:6px;cursor:pointer}
+.btn-green{background:linear-gradient(135deg,#0f9f6e,#22c55e)}
+.btn-gray{background:var(--gray)}
+.actions,.grid2,.grid3,.grid4{display:grid;gap:8px}
+.actions,.grid2{grid-template-columns:1fr 1fr}
+.grid3{grid-template-columns:1fr 1fr 1fr}
+.grid4{grid-template-columns:1fr 1fr 1fr 1fr}
+.row-grid{display:grid;grid-template-columns:42px 1fr 1fr 1fr;gap:8px;align-items:center;margin-top:8px}
+.cap{display:flex;align-items:center;justify-content:center;height:48px;border-radius:10px;font-weight:900;font-size:18px}
+.c1{background:#fff;color:#000}.c2{background:#000;color:#fff}.c3{background:#ef4444;color:#fff}.c4{background:#2563eb;color:#fff}.c5{background:#f59e0b;color:#000}.c6{background:#16a34a;color:#fff}
+.badge{display:inline-block;padding:7px 12px;border-radius:999px;margin:4px 4px 0 0;font-weight:800;font-size:13px}
+.good{background:#16a34a}.warn{background:#dc2626}.tip{background:#2563eb}.gold{background:#f59e0b;color:#111}.gray{background:#374151}.violet{background:#7c3aed}
+.box{margin-top:10px;padding:12px;border-radius:12px;background:#0d1628;border:1px solid #22304d}
+.mark-lane{position:relative;height:120px;border-radius:12px;background:linear-gradient(180deg,#0b1324,#111c32);overflow:hidden}
+.lane-boat{position:absolute;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.35);transition:all .35s ease}
+.table{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stat{padding:10px;border-radius:10px;background:#0d1628;border:1px solid #22304d;font-size:13px}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;background:#08101d;border:1px solid #243352;border-radius:12px;padding:12px;font-size:14px;line-height:1.6}
+label.switchline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+input[type="checkbox"]{width:auto;transform:scale(1.1)}
+.rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.rule-box{padding:12px;border-radius:12px;background:#08101d;border:1px solid #243352;font-size:13px;line-height:1.75}
+.rule-title{font-weight:800;margin-bottom:6px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (max-width: 760px){
+  .grid2,.grid3,.grid4,.actions,.rule-grid{grid-template-columns:1fr}
+  .table{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h1>BOAT RACE AI v8.3 + v8 シンプル版（最終ロジック強化版）</h1>
+    <div class="small">整形済みデータ欄への直接反映、発動ルールの要約表示に加えて、2弱壁の2着残り判定と、1展示弱×4攻め強の4頭補正を入れた強化版です。</div>
+  </div>
+
+  <div class="card">
+    <h3>0. 元データ貼り付け（boaters 生データ）</h3>
+    <textarea id="rawData" placeholder="boaters の元データをそのまま貼り付け"></textarea>
+    <div class="actions">
+      <button id="btnFormat">整形して反映</button>
+      <button id="btnFormatAndPredict" class="btn-green">整形して予想</button>
+    </div>
+    <div class="small">Fが1行型・2行型のどちらでも対応。全角Ｆ / 半角Fの両方に対応。</div>
+  </div>
+
+  <div class="card">
+    <h3>① 整形済みデータ貼り付け</h3>
+    <textarea id="pasteData" placeholder="艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>② 場・進入・オッズ</h3>
+    <div class="grid2">
+      <select id="track">
+        <option>桐生</option><option>戸田</option><option>江戸川</option><option>平和島</option><option>多摩川</option>
+        <option>浜名湖</option><option>蒲郡</option><option>常滑</option><option>津</option><option>三国</option>
+        <option>びわこ</option><option>住之江</option><option>尼崎</option><option>鳴門</option><option>丸亀</option>
+        <option>児島</option><option>宮島</option><option>徳山</option><option>下関</option><option>若松</option>
+        <option>芦屋</option><option>福岡</option><option>唐津</option><option selected>大村</option>
+      </select>
+      <input id="entryPattern" type="text" placeholder="進入 例: 123/456 または 123/564">
+    </div>
+    <textarea id="oddsText" placeholder="オッズ入力（任意）
+例
+1-3-4,8.5
+3-1-5,19.2"></textarea>
+  </div>
+
+  <div class="card">
+    <h3>②.5 精度寄りオプション</h3>
+    <div class="grid4">
+      <label class="switchline"><input type="checkbox" id="optConservative" checked> 穴頭暴走を抑える</label>
+      <label class="switchline"><input type="checkbox" id="optHeavyOne"> 1残り強め</label>
+      <label class="switchline"><input type="checkbox" id="optOddsSafe" checked> オッズ過信を抑える</label>
+      <label class="switchline"><input type="checkbox" id="optTightHimo" checked> 3着ヒモを安定寄り</label>
+      <label class="switchline"><input type="checkbox" id="optAutoRuleReflect" checked> ⑤ルールを買い目へ自動反映</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>③ 展示・気配・今節成績</h3>
+    <div class="small">今節成績はカンマ区切り。例：1,4,3,1</div>
+    <div id="inputs"></div>
+  </div>
+
+  <div class="card">
+    <div class="grid3">
+      <button id="btnPredict">🚤 予測</button>
+      <button id="btnSample" class="btn-green">サンプル</button>
+      <button id="btnClear" class="btn-gray">全クリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="result">結果待ち</div>
+    <div id="ruleHitBox" class="box" style="display:none"></div>
+    <div id="scoreBox" class="table" style="display:none"></div>
+    <div id="markView" class="box" style="display:none">
+      <h3 style="margin-bottom:10px;">1マーク展開イメージ</h3>
+      <div class="mark-lane">
+        <div id="lane1" class="lane-boat c1">1</div>
+        <div id="lane2" class="lane-boat c2">2</div>
+        <div id="lane3" class="lane-boat c3">3</div>
+        <div id="lane4" class="lane-boat c4">4</div>
+        <div id="lane5" class="lane-boat c5">5</div>
+        <div id="lane6" class="lane-boat c6">6</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>④ v8 シンプル版</h3>
+    <div id="simpleResult" class="box">結果待ち</div>
+  </div>
+</div>
+
+<script>
+const TRACK_BIAS={"桐生":{in:10,sashi:2,makuri:-2,himo:1},"戸田":{in:-5,sashi:8,makuri:6,himo:4},"江戸川":{in:-8,sashi:6,makuri:10,himo:5},"平和島":{in:-3,sashi:5,makuri:5,himo:3},"多摩川":{in:6,sashi:2,makuri:-2,himo:1},"浜名湖":{in:5,sashi:3,makuri:0,himo:2},"蒲郡":{in:10,sashi:2,makuri:-2,himo:1},"常滑":{in:8,sashi:3,makuri:0,himo:1},"津":{in:5,sashi:3,makuri:2,himo:2},"三国":{in:6,sashi:2,makuri:0,himo:1},"びわこ":{in:5,sashi:3,makuri:2,himo:2},"住之江":{in:4,sashi:4,makuri:3,himo:3},"尼崎":{in:7,sashi:3,makuri:1,himo:2},"鳴門":{in:10,sashi:2,makuri:-2,himo:1},"丸亀":{in:10,sashi:2,makuri:-2,himo:1},"児島":{in:5,sashi:4,makuri:3,himo:3},"宮島":{in:7,sashi:3,makuri:1,himo:2},"徳山":{in:10,sashi:2,makuri:-2,himo:1},"下関":{in:9,sashi:2,makuri:-1,himo:1},"若松":{in:8,sashi:3,makuri:0,himo:2},"芦屋":{in:10,sashi:2,makuri:-2,himo:1},"福岡":{in:7,sashi:3,makuri:1,himo:2},"唐津":{in:9,sashi:2,makuri:-1,himo:1},"大村":{in:12,sashi:1,makuri:-3,himo:1}};
+let trackEl,entryPatternEl,oddsTextEl,pasteDataEl,resultEl,scoreBoxEl,markViewEl,simpleResultEl,rawDataEl,ruleHitBoxEl;
+let optConservative,optHeavyOne,optOddsSafe,optTightHimo,optAutoRuleReflect;
+
+function makeInputs(){ let html=''; for(let i=1;i<=6;i++){ html+=`<div class="row-grid"><div class="cap c${i}">${i}</div><input id="tenji${i}" type="text" inputmode="decimal" placeholder="展示"><select id="demo${i}"><option value="0">普通</option><option value="6">良</option><option value="-6">弱</option></select><input id="form${i}" type="text" placeholder="今節成績 例:1,4,3,1"></div>`; } document.getElementById("inputs").innerHTML=html; }
+function splitLines(text){ return text.split(/\r?\n/).map(s=>s.replace(/\u00A0/g," ").trim()).filter(Boolean); }
+function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+function parseData(){ const raw=pasteDataEl.value.trim(); if(!raw) return []; let lines=splitLines(raw); if(lines[0]&&lines[0].includes("艇")) lines=lines.slice(1); return lines.map(line=>{ const d=line.split(",").map(x=>x.trim()); if(d.length<11) return null; const k=(d[7]||"0/0/0").split("/").map(v=>parseFloat(v)||0); return {boat:+d[0],f:d[1],st:+d[2]||0,rate:+d[3]||0,m2:+d[4]||0,courseST:+d[5]||0,course2:+d[6]||0,sashi:k[0]||0,makuri:k[1]||0,makurizashi:k[2]||0,courseWin:+d[8]||0,sessionST:+d[9]||0,avgRank:+d[10]||0}; }).filter(Boolean).sort((a,b)=>a.boat-b.boat); }
+function parseEntry(){ const raw=(entryPatternEl.value||"").trim(); if(!raw) return null; const p=raw.split("/"); if(p.length!==2) return null; const inList=p[0].replace(/[^1-6]/g,"").split("").map(Number).filter(Boolean); const outList=p[1].replace(/[^1-6]/g,"").split("").map(Number).filter(Boolean); const merged=inList.concat(outList); if(merged.length!==6) return null; if(new Set(merged).size!==6) return null; const posMap={}; merged.forEach((b,i)=>posMap[b]=i+1); const dashStart=inList.length+1; return {inList,outList,merged,posMap,dashStart,kado:merged[dashStart-1]||null}; }
+function parseOdds(){ const raw=(oddsTextEl.value||"").trim(); if(!raw) return {}; const map={}; raw.split(/\n/).map(x=>x.trim()).filter(Boolean).forEach(line=>{ const p=line.split(","); if(p.length<2) return; const key=p[0].trim(), val=parseFloat(p[1].trim()); if(key && !isNaN(val)) map[key]=val; }); return map; }
+function fPenalty(f){ if(f==="F1") return -8; if(f==="F2") return -15; return 0; }
+function stPower(st){ return st>0 ? (0.2-st)*120 : 0; }
+function tenjiPower(t){ return t>0 ? (7-t)*18 : 0; }
+function getTenji(i){ const v=parseFloat(document.getElementById("tenji"+i).value); return isNaN(v)?0:v; }
+function getDemo(i){ const v=parseFloat(document.getElementById("demo"+i).value); return isNaN(v)?0:v; }
+function getOptions(){ return {conservative:optConservative.checked,heavyOne:optHeavyOne.checked,oddsSafe:optOddsSafe.checked,tightHimo:optTightHimo.checked,autoRuleReflect:optAutoRuleReflect.checked}; }
+function parseForm(str){ const arr=(str||"").split(/[,\s/]+/).map(x=>parseInt(x,10)).filter(v=>!isNaN(v)); if(arr.length===0) return {score:0,stable:0,text:"なし",bad:0}; let score=0, stable=0, bad=0; arr.forEach(v=>{ if(v===1) score+=10; else if(v===2) score+=7; else if(v===3) score+=4; else if(v===4) score+=1; else if(v>=5) score-=3; }); for(let i=1;i<arr.length;i++) if(Math.abs(arr[i]-arr[i-1])<=1) stable++; arr.forEach(v=>{ if(v>=5) bad++; }); score += stable*1.2; score -= bad*1.5; return {score,stable,text:arr.join("-"),bad}; }
+function getBoatStyle(b){ let score=0; if(b.st<=0.13) score+=3; else if(b.st>=0.18) score-=2; if(b.m2>=40) score+=2; if(b.rate>=6.0) score+=2; if(b.makuri>=2) score+=3; if(b.makurizashi>=1) score+=2; if(b.fPen<0) score-=3; let label="普通"; if(score>=6) label="攻め"; else if(score>=2) label="差し寄り"; else if(score<=-1) label="慎重"; return {score,label}; }
+function weakIn(one,entry){ return one.st>0.15 || one.rate<5.5 || one.m2<33 || one.fPen<0 || (entry&&entry.posMap[1]!==1); }
+function wallScore(two){ let sc=two.rate*3+two.m2*0.2+stPower(two.st)*0.4+two.form.score*0.9+two.sashi*2+two.demo; if(two.fPen<0) sc-=12; return sc; }
+function isWeakWall(two,entry){ let sc=wallScore(two); if(entry&&entry.posMap[2]&&entry.posMap[2]>2) sc-=15; return sc<35; }
+function isBlocked(attacker,boats,entry){ const pos=entry&&entry.posMap[attacker.boat]?entry.posMap[attacker.boat]:attacker.boat; if(pos<=2) return false; const ahead=boats.filter(b=>{ const p=entry&&entry.posMap[b.boat]?entry.posMap[b.boat]:b.boat; return p>=2&&p<pos; }); for(const b of ahead) if(b.rate>attacker.rate||b.m2>attacker.m2||b.course2>attacker.course2) return true; return false; }
+function twoStayScore(two,one,three){ let s=0; if(two.st<=0.16) s+=10; if(two.rate>=5) s+=8; if(two.form.score>=10) s+=8; if(two.demo>0) s+=4; if(three&&three.makuri>=2) s+=6; if(one.rate<6) s+=6; if(two.fPen<0) s-=10; return s; }
+function outsideStableScore(b){ let s=0; if(b.m2>=38) s+=10; if(b.st<=0.17) s+=6; if(b.course2>=30) s+=6; if(b.form.score>=8) s+=8; if(b.avgRank>0&&b.avgRank<=3.5) s+=4; if(b.fPen<0) s-=8; return s; }
+function oneRemainScore(one,two,attackers,bias,opts){ let s=0; if(one.course2>=70) s+=20; if(one.courseWin>=45) s+=16; if(one.st<=0.16) s+=10; if(one.st<=0.14) s+=6; if(one.tenji>0&&one.tenji<=6.90) s+=6; if(one.demo>=0) s+=4; if(one.form.text!=="なし"&&one.form.score>=0) s+=6; if(one.fPen<0) s-=6; if(one.m2<28) s-=6; if(one.form.bad>=2) s-=6; if(two&&two.rate<6) s+=8; if(two&&two.sashi<3) s+=6; const top=attackers[0]; if(top){ if(top.raw.makuri===0) s+=12; if(top.score<80) s+=10; if(top.laneNo>=5) s+=10; } s+=Math.max(0,bias.in); if(opts.heavyOne) s+=8; return s; }
+function courseRealityPenalty(b,entry){ if(!entry) return 0; const pos=entry.posMap[b.boat]; if(pos===6) return -30; if(pos===5) return -18; if(pos===4) return -6; return 0; }
+function applyStRankBoost(boats){ const stSorted=[...boats].sort((a,b)=>a.st-b.st); const stRank={}; stSorted.forEach((b,i)=>{stRank[b.boat]=i+1;}); boats.forEach(b=>{ if(stRank[b.boat]===1) b.stBoost=20; else if(stRank[b.boat]===2) b.stBoost=10; else b.stBoost=0; }); return {stSorted,stRank}; }
+function headSuppressionPenalty(b,laneNo,entry,opts){ let p=0; if(!opts.conservative) return 0; if(laneNo>=5) p+=10; if(laneNo===6) p+=6; if(b.makuri===0) p+=10; if(b.rate<5.2) p+=8; if(b.m2<35) p+=6; if(b.st>0.16) p+=8; if(b.form.bad>=2) p+=5; if(b.fPen<0) p+=5; if(entry&&entry.posMap[b.boat]>=5&&b.course2<10) p+=6; return p; }
+function attackScore(b,laneNo,bias,entry,weakWallFlag,opts){ const style=getBoatStyle(b); let lane=0; if(laneNo===4) lane=2; if(laneNo===5) lane=5; if(laneNo===6) lane=7; let sc=b.rate*5.8+b.m2*0.55+stPower(b.st)+tenjiPower(b.tenji)+b.demo+b.fPen+b.course2*0.15+b.makuri*3.2+b.makurizashi*2.4+style.score*2+bias.makuri+lane+b.form.score*0.85+(b.stBoost||0)+courseRealityPenalty(b,entry); if(entry){ const pos=entry.posMap[b.boat]; if(pos>=entry.dashStart) sc+=5; if(b.boat===entry.kado) sc+=12; if(pos>=entry.dashStart&&b.st<=0.14) sc+=8; } if(weakWallFlag) sc+=12; if(b.makuri===0&&b.makurizashi===0&&b.courseWin<5) sc-=15; if(b.makuri===0) sc-=12; if(b.makurizashi>=1&&b.makuri===0) sc-=6; sc -= headSuppressionPenalty(b,laneNo,entry,opts); return sc; }
+function isAttackFail(attacker,one,two){ let f=0; if(attacker.makuri<1) f+=2; if(attacker.makurizashi<1) f+=2; if(attacker.st>0.16) f+=2; if(attacker.m2<35) f+=2; if(two.rate>5.5) f+=2; if(two.m2>30) f+=2; if(one.course2>60) f+=2; if(one.st<=0.16) f+=1; if(attacker.makuri===0) f+=3; return f; }
+function stabilityScore(b,scenario,attacker,bias,entry,opts){ let sc=b.m2*0.85+b.rate*4.4+stPower(b.st)*0.35+tenjiPower(b.tenji)*0.45+b.demo+b.fPen+b.course2*0.28+b.courseWin*0.15+b.form.score*0.95+b.form.stable*1.2+outsideStableScore(b); if(b.m2>=40) sc+=14; if(b.st<=0.15) sc+=6; if(b.avgRank>0&&b.avgRank<=3.5) sc+=4; if(b.fPen<0) sc-=10; if(scenario==="イン逃げ"){ if(b.boat===3) sc+=10; if(b.boat>=5&&b.m2>=38) sc+=12; } else if(scenario==="差し"){ if(b.boat===1) sc+=18; if(b.boat>=5&&b.m2>=38) sc+=15; } else if(scenario==="まくり未遂"){ if(b.boat===1) sc+=22; if(b.boat===2) sc+=8; if(b.boat>=5&&b.m2>=35) sc+=14; } else { if(b.boat===1) sc+=16; if(b.boat===2) sc+=7; if(b.boat>=5&&b.m2>=38) sc+=16; } if(entry&&entry.posMap[b.boat]>=entry.dashStart) sc+=4; if(attacker===b.boat) sc-=999; sc+=bias.himo||0; if(opts.tightHimo){ if(b.boat>=5&&b.course2<12) sc-=8; if(b.form.bad>=2) sc-=8; if(b.st>0.18) sc-=6; } return sc; }
+function confidenceLabel(scenario,attackFail,oneRemain,bestScore,inEscape,sashi,makuri){ let c=55; if(scenario==="イン逃げ") c+=10; if(scenario==="差し") c+=6; if(attackFail>=6) c-=10; if(oneRemain>=35) c+=5; c += clamp((Math.max(inEscape,sashi,makuri)-Math.min(inEscape,sashi,makuri))/8,0,12); c += clamp((bestScore-80)/4,-8,8); c=Math.round(clamp(c,35,88)); if(c>=75) return {score:c,label:"高め"}; if(c>=60) return {score:c,label:"中位"}; return {score:c,label:"やや低め"}; }
+function getSuji(attacker){ if(attacker===3) return 4; if(attacker===4) return 5; if(attacker===5) return 6; return null; }
+function analyzeTwoCourseRisk(two,boats,entry){ const reasons=[]; let count=0; if(two.st>=0.16){ count++; reasons.push("ST 0.16以上"); } if(two.f!=="なし"){ count++; reasons.push("F持ち"); } if((two.tenji>0&&two.tenji>=6.95)||two.demo<0){ count++; reasons.push("展示弱い"); } if(two.rate<5.5){ count++; reasons.push("勝率低い"); } const outsideAttackers=boats.filter(b=>b.boat>=3).filter(b=>{ const pos=entry&&entry.posMap[b.boat]?entry.posMap[b.boat]:b.boat; return pos>=3&&((b.makuri+b.makurizashi)>=2||(b.st<=0.15&&b.m2>=38)); }); if(outsideAttackers.length){ count++; reasons.push("外に攻め艇"); } let rule="通常"; if(count>=3) rule="2固定禁止"; else if(count>=2) rule="1-3-2入れる"; return {count,reasons,rule,outsideAttackers}; }
+function choose3or5Fallback(boats,entry,twoRisk,threeRemain,fiveKado){
+  const b3 = boats.find(b=>b.boat===3);
+  const b5 = boats.find(b=>b.boat===5);
+  const hasAttacker = twoRisk.outsideAttackers.length > 0;
+  let base = hasAttacker ? "5" : "3";
+  let power5 = 0;
+  if(b5){
+    if(b5.m2 >= 40) power5++;
+    if(b5.st <= 0.16) power5++;
+    if(b5.tenji > 0 && b5.tenji <= 6.90) power5++;
+    if((b5.makuri + b5.makurizashi) >= 1) power5++;
+  }
+  const has5Power = power5 >= 3;
+  const verySlow3 = !!(b3 && b3.st >= 0.21);
+  if(threeRemain.score >= 5 && fiveKado.score < 5) base = "3";
+  if(fiveKado.score >= 5) base = "5";
+  if(base === "5" && !has5Power && threeRemain.score >= 3) base = "3";
+  if(base === "3" && has5Power && hasAttacker && fiveKado.score >= 3) base = "5";
+  if(verySlow3 && has5Power) base = "5";
+  const note = [
+    hasAttacker ? "攻め艇あり→5寄り" : "攻め艇なし→3寄り",
+    has5Power ? "5の機力あり" : "5の機力は強調しにくい",
+    verySlow3 ? "3のSTかなり遅い" : "3のSTは許容",
+    threeRemain.rule,
+    fiveKado.rule
+  ];
+  return {pick: base, note: note.join(" / "), has5Power, verySlow3, hasAttacker};
+}
+function analyzeTwoSecondRemain(two, one, twoRisk, bestAttacker, attackFail){
+  let score = 0;
+  const reasons = [];
+  if(twoRisk.count >= 2){ score += 1; reasons.push("2弱壁"); }
+  if(two.sashi >= 2){ score += 2; reasons.push("2に差し残り"); }
+  if(two.course2 >= 40){ score += 1; reasons.push("2の2連対率あり"); }
+  if(two.st <= 0.18){ score += 1; reasons.push("2のST許容"); }
+  if(bestAttacker && bestAttacker.boat === 4){ score += 2; reasons.push("4攻め成立型"); }
+  if(attackFail <= 5){ score += 1; reasons.push("攻め成立寄り"); }
+  if(one && one.tenji > 0 && one.tenji >= 6.79){ score += 1; reasons.push("1展示弱め"); }
+  let rule = "通常";
+  if(score >= 5) rule = "2着残り厚め";
+  else if(score >= 3) rule = "2着残りあり";
+  return {score, reasons, rule};
+}
+function analyzeOneWeakFourHead(one, four, entry){
+  let score = 0;
+  const reasons = [];
+  if(one && one.tenji > 0 && one.tenji >= 6.79){ score += 2; reasons.push("1展示弱"); }
+  if(one && one.demo < 0){ score += 1; reasons.push("1気配弱"); }
+  if(four && four.rate >= 6.8){ score += 2; reasons.push("4勝率高い"); }
+  if(four && (four.makuri + four.makurizashi) >= 4){ score += 2; reasons.push("4攻め脚強い"); }
+  if(four && four.st <= 0.16){ score += 1; reasons.push("4ST許容"); }
+  if(entry && (entry.posMap[4] || 4) === 4){ score += 1; reasons.push("4カド位置"); }
+  let rule = "通常";
+  if(score >= 6) rule = "4頭補正";
+  else if(score >= 4) rule = "4頭注意";
+  return {score, reasons, rule};
+}
+function analyzeThreeRemain(boats,entry,twoRisk,attackFail){ const b3=boats.find(b=>b.boat===3); const b4=boats.find(b=>b.boat===4); const b5=boats.find(b=>b.boat===5); let score=0; const reasons=[]; const attackPresence=[b4,b5].filter(Boolean).some(b=>{ const pos=entry&&entry.posMap[b.boat]?entry.posMap[b.boat]:b.boat; return pos>=4&&((b.makuri+b.makurizashi)>=2||(b.st<=0.16&&b.m2>=38)); }); if(!attackPresence){ score+=2; reasons.push("攻め不在"); } if(twoRisk.count>=2){ score+=2; reasons.push("2不安あり"); } if(attackFail>=6){ score+=1; reasons.push("攻め不成立寄り"); } if(b3&&b3.st<=0.20){ score+=1; reasons.push("3のST許容"); } if(b3&&b3.course2>=20){ score+=1; reasons.push("3の2連対率まずまず"); } if(entry&&(entry.posMap[3]||3)<=3){ score+=1; reasons.push("3が内側"); } let rule="通常"; if(score>=5) rule="3残し厚め"; else if(score>=3) rule="3も残す"; return {score,reasons,rule,attackPresence}; }
+function analyzeFiveKado(boats, entry, twoRisk){
+  const b4 = boats.find(b=>b.boat===4);
+  const b5 = boats.find(b=>b.boat===5);
+  let score = 0;
+  const reasons = [];
+  if(!b5) return {score:0,reasons:["5不在"],rule:"通常"};
+  const pos5 = entry && entry.posMap[5] ? entry.posMap[5] : 5;
+  const kado5 = entry && entry.kado === 5;
+  const attack4 = !!(b4 && ((b4.makuri + b4.makurizashi) >= 2 || (b4.st <= 0.16 && b4.m2 >= 38)));
+  const attack5 = ((b5.makuri + b5.makurizashi) >= 1 || (b5.st <= 0.16 && b5.m2 >= 40));
+  if(kado5 || pos5 === 4 || pos5 === 5){ score += 1; reasons.push("5が動ける位置"); }
+  let power5 = 0;
+  if(b5.m2 >= 40) power5++;
+  if(b5.st <= 0.16) power5++;
+  if(b5.tenji > 0 && b5.tenji <= 6.90) power5++;
+  if((b5.makuri + b5.makurizashi) >= 1) power5++;
+  if(power5 >= 3){ score += 2; reasons.push("5の機力しっかり"); }
+  if(b5.tenji > 0 && b5.tenji <= 6.95){ score += 1; reasons.push("5の展示良"); }
+  if(attack5){ score += 2; reasons.push("5に攻め脚"); }
+  if(attack4){ score += 1; reasons.push("4が前受け攻め"); }
+  if(twoRisk.count >= 2){ score += 1; reasons.push("2不安あり"); }
+  let rule = "通常";
+  if(score >= 5) rule = "5厚め";
+  else if(score >= 3) rule = "5も残す";
+  return {score, reasons, rule, attack4, attack5, pos5};
+}
+function buildTickets(fixed,himos,scenario,attacker,two,twoStay,oneRemain,attackFail,twoRisk,fallbackPick,threeRemain,fiveKado,twoSecondRemain,oneWeakFourHead){
+  const twoStrong=(two.rate>=6.0?1:0)+(two.st<=0.15?1:0)+(two.sashi>=1?1:0);
+  const isTwoStrong=twoStrong>=2;
+  const tickets=[],h=himos.map(x=>x.boat),head=fixed[0],second=fixed[1];
+  function add(bet,base,note){ if(!bet) return; const p=bet.split("-").map(Number); if(new Set(p).size!==3) return; if(tickets.some(x=>x.bet===bet)) return; tickets.push({bet,base,note}); }
+  add(`${head}-${second}-${h[0]}`,100,"本線");
+  add(`${head}-${second}-${h[1]}`,94,"本線");
+  add(`${head}-${h[0]}-${second}`,84,"押さえ");
+  add(`${second}-${head}-${h[0]}`,78,"逆転");
+  add(`${head}-${h[0]}-${h[1]}`,72,"穴目");
+  if(twoStay>20&&![head,second].includes(2)) add(`${head}-${second}-2`,88,"2残り");
+  if(isTwoStrong){ add(`1-2-${h[0]}`,95,"2強残り"); add(`2-1-${h[0]}`,92,"2差し本線"); }
+  if(oneRemain>25&&![head,second].includes(1)) add(`${head}-${second}-1`,92,"1残り");
+  if(oneRemain>25&&head!==1) add(`${head}-1-${h[0]}`,86,"1差し残り");
+  const suji=getSuji(attacker);
+  if((scenario==="まくり"||scenario==="まくり差し"||scenario==="まくり未遂")&&suji&&attackFail<6){ add(`${attacker}-${suji}-1`,96,"スジ本線"); add(`${attacker}-${suji}-2`,90,"スジ本線"); add(`${attacker}-1-${suji}`,82,"内残り"); }
+  if(scenario==="差し"){ add(`2-1-${h[0]}`,98,"差し本線"); add(`2-1-${h[1]}`,86,"差し押さえ"); }
+  if(scenario==="イン逃げ") add(`1-3-2`,70,"相手流れ");
+  if(twoRisk.count>=2){ add(`1-3-2`,86,"2コース警戒"); if(fallbackPick==="5"){ add(`1-5-2`,84,"2飛び5寄り"); add(`1-5-3`,76,"2飛び外拾い"); } else { add(`1-3-5`,74,"2飛び3寄り"); } }
+  if(threeRemain.score>=5){ add(`1-3-2`,92,"3残り厚め"); add(`1-3-5`,82,"3残り厚め"); } else if(threeRemain.score>=3){ add(`1-3-2`,80,"3も残す"); }
+  if(fiveKado.score>=5){ add(`1-5-2`,90,"5カド厚め"); add(`1-5-3`,84,"5カド厚め"); } else if(fiveKado.score>=3){ add(`1-5-2`,78,"5も残す"); }
+  if(isTwoStrong){ tickets.forEach(t=>{ if(/^1-5-/.test(t.bet)) t.base -= 5; }); }
+  if(twoSecondRemain && twoSecondRemain.score >= 5){
+    add(`1-2-3`,91,"2着残り厚め");
+    add(`1-2-5`,87,"2着残り厚め");
+  } else if(twoSecondRemain && twoSecondRemain.score >= 3){
+    add(`1-2-3`,80,"2着残りあり");
+  }
+  if(oneWeakFourHead && oneWeakFourHead.score >= 6){
+    add(`4-1-2`,90,"1弱×4頭補正");
+    add(`4-1-5`,84,"1弱×4頭補正");
+  } else if(oneWeakFourHead && oneWeakFourHead.score >= 4){
+    add(`4-1-2`,76,"4頭注意");
+  }
+  return tickets;
+}
+function applyRuleReflectionToTickets(tickets,context){
+  const {twoRisk,fallbackPick,threeRemain,fiveKado,opts,scenario,twoSecondRemain,oneWeakFourHead}=context;
+  let list=tickets.map(t=>({...t}));
+  if(!opts.autoRuleReflect) return list;
+  if(twoRisk.count>=3){
+    list.forEach(t=>{ if(/^1-2-/.test(t.bet)) t.base-=18; if(/^2-1-/.test(t.bet)) t.base-=22; if(/^1-3-2$/.test(t.bet)) t.base+=22; if(/^1-5-2$/.test(t.bet)) t.base+=20; if(/^1-3-5$/.test(t.bet)) t.base+=10; if(/^1-5-3$/.test(t.bet)) t.base+=10; });
+    list=list.filter(t=>{ if(/^2-1-/.test(t.bet)) return false; if(/^1-2-/.test(t.bet)&&!/^1-2-(3|5|6)$/.test(t.bet)) return false; return true; });
+  } else if(twoRisk.count>=2){
+    list.forEach(t=>{ if(/^1-3-2$/.test(t.bet)) t.base+=14; if(/^1-5-2$/.test(t.bet)) t.base+=12; if(/^1-2-/.test(t.bet)) t.base-=6; });
+  }
+  if(threeRemain.score>=5){ list.forEach(t=>{ if(/^1-3-2$/.test(t.bet)) t.base+=18; if(/^1-3-5$/.test(t.bet)) t.base+=14; if(/^1-2-3$/.test(t.bet)) t.base-=10; }); }
+  else if(threeRemain.score>=3){ list.forEach(t=>{ if(/^1-3-2$/.test(t.bet)) t.base+=8; if(/^1-3-5$/.test(t.bet)) t.base+=6; }); }
+  if(fiveKado.score>=5||fallbackPick==="5"){ list.forEach(t=>{ if(/^1-5-2$/.test(t.bet)) t.base+=18; if(/^1-5-3$/.test(t.bet)) t.base+=16; if(/^1-3-2$/.test(t.bet)&&fiveKado.score>=5) t.base-=4; if(/^1-2-5$/.test(t.bet)) t.base+=6; }); }
+  else if(fallbackPick==="3"){ list.forEach(t=>{ if(/^1-3-2$/.test(t.bet)) t.base+=10; if(/^1-3-5$/.test(t.bet)) t.base+=8; if(/^1-5-2$/.test(t.bet)) t.base-=4; }); }
+  if(twoSecondRemain && twoSecondRemain.score >= 5){
+    list.forEach(t=>{ if(/^1-2-3$/.test(t.bet)) t.base += 12; if(/^1-2-5$/.test(t.bet)) t.base += 10; });
+  } else if(twoSecondRemain && twoSecondRemain.score >= 3){
+    list.forEach(t=>{ if(/^1-2-3$/.test(t.bet)) t.base += 6; });
+  }
+  if(oneWeakFourHead && oneWeakFourHead.score >= 6){
+    list.forEach(t=>{ if(/^4-1-2$/.test(t.bet)) t.base += 18; if(/^4-1-5$/.test(t.bet)) t.base += 14; });
+  } else if(oneWeakFourHead && oneWeakFourHead.score >= 4){
+    list.forEach(t=>{ if(/^4-1-2$/.test(t.bet)) t.base += 8; });
+  }
+  if(scenario==="イン逃げ"){ list.forEach(t=>{ if(/^[3-6]-/.test(t.bet)) t.base-=8; }); }
+  list=list.filter(t=>t.base>58);
+  const uniq=new Map();
+  for(const t of list){ if(!uniq.has(t.bet)||uniq.get(t.bet).base<t.base){ uniq.set(t.bet,t); } }
+  return [...uniq.values()];
+}
+function rankTickets(tickets,oddsMap,opts){ return tickets.map(t=>{ const odds=oddsMap[t.bet]||0; let ev=t.base; if(odds>0){ const effOdds=opts.oddsSafe?Math.pow(Math.min(odds,40),0.82):Math.min(odds,30); ev=t.base*effOdds; } return {...t,odds,ev}; }).sort((a,b)=>b.ev-a.ev); }
+function drawMark(order){ markViewEl.style.display="block"; const arr=order.split("-").map(Number), pos=[{left:"10%",top:"60%"},{left:"40%",top:"30%"},{left:"70%",top:"60%"}]; for(let i=1;i<=6;i++){ const el=document.getElementById("lane"+i); el.style.left="-100px"; el.style.top="60%"; } arr.forEach((boat,i)=>{ const el=document.getElementById("lane"+boat); if(el){ el.style.left=pos[i].left; el.style.top=pos[i].top; } }); }
+function safePrimaryHimos(himos,attackFail,opts){ let list=[...himos]; if(opts.tightHimo) list.sort((a,b)=>(b.score+(b.stable||0)*0.5)-(a.score+(a.stable||0)*0.5)); if(attackFail>=6) list.sort((a,b)=>{ if(a.boat===6) return 1; if(b.boat===6) return -1; if(a.boat===2&&b.boat!==2) return -1; if(b.boat===2&&a.boat!==2) return 1; return b.score-a.score; }); return list; }
+function buildRuleHitSummary(twoRisk, threeRemainFinal, fiveKadoFinal, twoSecondRemain, oneWeakFourHead, fallback, opts, isTwoStrong){
+  const hits = [];
+  if(twoRisk.count >= 3) hits.push("✔ 2固定禁止発動");
+  else if(twoRisk.count >= 2) hits.push("✔ 2コース警戒発動");
+  if(isTwoStrong) hits.push("✔ 2強残り補正");
+  if(threeRemainFinal.score >= 5) hits.push("✔ 3残り厚め");
+  else if(threeRemainFinal.score >= 3) hits.push("✔ 3も残す");
+  if(fiveKadoFinal.score >= 5) hits.push("✔ 5カド厚め");
+  else if(fiveKadoFinal.score >= 3) hits.push("✔ 5も残す");
+  if(twoSecondRemain.score >= 5) hits.push("✔ 2着残り厚め");
+  else if(twoSecondRemain.score >= 3) hits.push("✔ 2着残りあり");
+  if(oneWeakFourHead.score >= 6) hits.push("✔ 1弱×4頭補正");
+  else if(oneWeakFourHead.score >= 4) hits.push("✔ 4頭注意");
+  hits.push(`✔ 2飛び時の本線寄り: ${fallback.pick}`);
+  hits.push(`✔ 自動反映: ${opts.autoRuleReflect ? "ON" : "OFF"}`);
+  return hits;
+}
+function runV7(){
+  const boats=parseData();
+  if(boats.length<6){ resultEl.innerHTML="整形済みデータを6艇分入れてください。"; scoreBoxEl.style.display="none"; markViewEl.style.display="none"; ruleHitBoxEl.style.display="none"; return null; }
+  const entry=parseEntry();
+  if(entryPatternEl.value.trim()&&!entry){ resultEl.innerHTML="進入パターンの形式が不正です。例: 123/456 または 123/564（1〜6を重複なく1回ずつ）"; scoreBoxEl.style.display="none"; markViewEl.style.display="none"; ruleHitBoxEl.style.display="none"; return null; }
+  const opts=getOptions();
+  const track=trackEl.value;
+  const bias=TRACK_BIAS[track]||{in:0,sashi:0,makuri:0,himo:0};
+  boats.forEach((b,i)=>{ const n=i+1; b.tenji=getTenji(n); b.demo=getDemo(n); b.fPen=fPenalty(b.f); b.form=parseForm(document.getElementById("form"+n).value); b.style=getBoatStyle(b); });
+  const {stSorted}=applyStRankBoost(boats);
+  const one=boats.find(b=>b.boat===1), two=boats.find(b=>b.boat===2), three=boats.find(b=>b.boat===3), four=boats.find(b=>b.boat===4);
+  const weakInFlag=weakIn(one,entry), weakWallFlag=isWeakWall(two,entry), twoStay=twoStayScore(two,one,three), twoRisk=analyzeTwoCourseRisk(two,boats,entry);
+  let inEscape=one.rate*8+one.m2*0.5+stPower(one.st)+tenjiPower(one.tenji)+one.demo+one.fPen+one.courseWin*0.12+one.course2*0.12+bias.in+one.form.score*0.9;
+  if(entry&&entry.posMap[1]!==1) inEscape-=18;
+  if(weakInFlag) inEscape*=0.84;
+  let sashi=two.rate*6+two.m2*0.42+stPower(two.st)+tenjiPower(two.tenji)+two.demo+(one.fPen*-0.5)+two.fPen+two.course2*0.16+two.sashi*2.2+bias.sashi+two.form.score*1.0;
+  if(weakWallFlag) sashi-=4;
+  if(twoRisk.count>=3) sashi-=10;
+  const attackers=boats.filter(b=>b.boat>=3).map(b=>{ const laneNo=entry&&entry.posMap[b.boat]?entry.posMap[b.boat]:b.boat; const blocked=isBlocked(b,boats,entry); let score=attackScore(b,laneNo,bias,entry,weakWallFlag,opts); if(!blocked) score+=10; return {boat:b.boat,score,blocked,laneNo,raw:b}; }).sort((a,b)=>b.score-a.score);
+  const stTop=stSorted[0]?.boat;
+  attackers.forEach(a=>{ if(a.boat===stTop) a.score+=15; });
+  attackers.sort((a,b)=>b.score-a.score);
+  let best=attackers[0], tempAttackFail=isAttackFail(best.raw,one,two);
+  if(best.laneNo===4&&tempAttackFail>=5) best.score-=15;
+  if(best.laneNo>=5&&tempAttackFail>=4) best.score-=35;
+  if(opts.conservative&&best.laneNo>=5&&best.raw.rate<5.5) best.score-=10;
+  attackers.sort((a,b)=>b.score-a.score);
+  best=attackers[0];
+  let attacker=best.boat, makuri=best.score, blocked=best.blocked;
+  const attackFail=isAttackFail(best.raw,one,two);
+  let scenario="イン逃げ";
+  if(sashi>inEscape&&sashi>makuri){ scenario="差し"; attacker=2; }
+  else if(makuri>inEscape*1.10&&!blocked&&weakInFlag&&!(attackFail>=6)) scenario="まくり";
+  else if(makuri>inEscape*1.00){ scenario=attackFail>=6?"まくり未遂":"まくり差し"; }
+  const oneRemain=oneRemainScore(one,two,attackers,bias,opts);
+  if(opts.conservative&&oneRemain>=40&&scenario!=="差し"&&attackFail>=5) scenario="まくり未遂";
+  if(twoRisk.count>=3&&scenario==="差し") scenario="イン逃げ";
+  let fixed=[];
+  if(scenario==="イン逃げ") fixed=[1,2];
+  else if(scenario==="差し") fixed=[2,1];
+  else if(scenario==="まくり") fixed=[attacker,1];
+  else if(scenario==="まくり未遂") fixed=[1,attacker];
+  else fixed=[attacker,2];
+  let himos=boats.filter(b=>!fixed.includes(b.boat)).map(b=>({boat:b.boat,score:stabilityScore(b,scenario,attacker,bias,entry,opts),m2:b.m2,rate:b.rate,form:b.form.text||"なし",stable:outsideStableScore(b)})).sort((a,b)=>b.score-a.score);
+  if(twoStay>20&&!fixed.includes(2)) himos.push({boat:2,score:twoStay,m2:two.m2,rate:two.rate,form:two.form.text||"なし",stable:twoStay});
+  if(oneRemain>25&&!fixed.includes(1)) himos.push({boat:1,score:oneRemain,m2:one.m2,rate:one.rate,form:one.form.text||"なし",stable:oneRemain});
+  himos=safePrimaryHimos(himos,attackFail,opts);
+  const threeRemainFinal=analyzeThreeRemain(boats,entry,twoRisk,attackFail);
+  const fiveKadoFinal=analyzeFiveKado(boats,entry,twoRisk);
+  const fallback=choose3or5Fallback(boats,entry,twoRisk,threeRemainFinal,fiveKadoFinal);
+  const twoSecondRemain = analyzeTwoSecondRemain(two, one, twoRisk, best, attackFail);
+  const oneWeakFourHead = analyzeOneWeakFourHead(one, four, entry);
+  const twoStrong=(two.rate>=6.0?1:0)+(two.st<=0.15?1:0)+(two.sashi>=1?1:0);
+  const isTwoStrong=twoStrong>=2;
+  if(twoRisk.count>=2){
+    himos.sort((a,b)=>{ const pri=fallback.pick==="5"?5:3; if(a.boat===pri&&b.boat!==pri) return -1; if(b.boat===pri&&a.boat!==pri) return 1; return b.score-a.score; });
+  }
+  const order=`${fixed[0]}-${fixed[1]}-${himos[0].boat}`;
+  const conf=confidenceLabel(scenario,attackFail,oneRemain,best.score,inEscape,sashi,makuri);
+  let comment="";
+  if(scenario==="イン逃げ") comment="①が先マイして押し切る展開。";
+  else if(scenario==="差し") comment="②が差して①を捕らえる展開。";
+  else if(scenario==="まくり") comment=`${attacker}が一気に攻め切る展開。`;
+  else if(scenario==="まくり未遂") comment=`${attacker}が攻めるが届き切らず、①が残る展開。`;
+  else comment=`${attacker}が展開を突いて、まくり差し気味に入る展開。`;
+  if(twoStay>20) comment+=" 2残り補正あり。";
+  if(oneRemain>25) comment+=" 1残り補正あり。";
+  if(attackFail>=6) comment+=" スジ弱化補正あり。";
+  const riskText=twoRisk.reasons.length?twoRisk.reasons.join(" / "):"該当なし";
+  const fallbackText=`本線寄り: ${fallback.pick} / ${fallback.note}`;
+  const threeRemainText=(threeRemainFinal.reasons.length?threeRemainFinal.reasons.join(" / "):"該当なし")+` (${threeRemainFinal.rule})`;
+  const fiveKadoText=(fiveKadoFinal.reasons.length?fiveKadoFinal.reasons.join(" / "):"該当なし")+` (${fiveKadoFinal.rule})`;
+  const twoSecondText=(twoSecondRemain.reasons.length?twoSecondRemain.reasons.join(" / "):"該当なし")+` (${twoSecondRemain.rule})`;
+  const oneWeakFourText=(oneWeakFourHead.reasons.length?oneWeakFourHead.reasons.join(" / "):"該当なし")+` (${oneWeakFourHead.rule})`;
+  resultEl.innerHTML=`<span class="badge gold">${track}</span><span class="badge tip">展開タイプ：${scenario}</span><span class="badge good">主役：${attacker}号艇</span><span class="badge violet">信頼度：${conf.label} (${conf.score})</span><div class="box"><b>1マーク通過予想：</b> ${order}<br><b>イン逃げ指数：</b> ${inEscape.toFixed(1)}<br><b>差し圧：</b> ${sashi.toFixed(1)}<br><b>攻め圧：</b> ${makuri.toFixed(1)}<br><b>攻め不成立指数：</b> ${attackFail}<br><b>2残り指数：</b> ${twoStay.toFixed(1)}<br><b>1残り指数：</b> ${oneRemain.toFixed(1)}<br><b>2コースチェック：</b> ${twoRisk.count}項目 (${twoRisk.rule})<br><b>2コース警戒理由：</b> ${riskText}<br><b>2が飛びそうな時：</b> ${fallbackText}<br><b>3が残る条件：</b> ${threeRemainText}<br><b>5が来るカド展開：</b> ${fiveKadoText}<br><b>2着残り判定：</b> ${twoSecondText}<br><b>1弱×4頭判定：</b> ${oneWeakFourText}<br><b>自動反映：</b> ${opts.autoRuleReflect?"ON":"OFF"}<br><b>イン弱体：</b> ${weakInFlag?"あり":"なし"}<br><b>2弱壁：</b> ${weakWallFlag?"あり":"なし"}<br><b>コメント：</b> ${comment}</div>`;
+  const oddsMap=parseOdds();
+  let rawTickets=buildTickets(fixed,himos,scenario,attacker,two,twoStay,oneRemain,attackFail,twoRisk,fallback.pick,threeRemainFinal,fiveKadoFinal,twoSecondRemain,oneWeakFourHead);
+  rawTickets=applyRuleReflectionToTickets(rawTickets,{twoRisk,fallbackPick:fallback.pick,threeRemain:threeRemainFinal,fiveKado:fiveKadoFinal,opts,scenario,twoSecondRemain,oneWeakFourHead});
+  const tickets=rankTickets(rawTickets,oddsMap,opts).slice(0,10);
+  resultEl.innerHTML += `<div class="box"><b>推奨買い目</b><br>${tickets.map(t=>`${t.bet} / ${t.note}${t.odds?` / オッズ ${t.odds}`:""} / 評価 ${t.ev.toFixed(1)}`).join("<br>")}</div>`;
+  scoreBoxEl.style.display="grid";
+  scoreBoxEl.innerHTML=boats.map(b=>{ const stable=b.boat>=4?outsideStableScore(b):0; return `<div class="stat"><b>${b.boat}号艇</b><br>勝率:${b.rate}<br>M2:${b.m2}<br>ST:${b.st}<br>展示:${b.tenji||0}<br>今節:${b.form.text}<br>今節点:${b.form.score.toFixed(1)}<br>気配:${b.style.label}<br>${b.boat>=4?`外安定:${stable.toFixed(1)}`:""}</div>`; }).join("");
+  const hitSummary = buildRuleHitSummary(twoRisk, threeRemainFinal, fiveKadoFinal, twoSecondRemain, oneWeakFourHead, fallback, opts, isTwoStrong);
+  ruleHitBoxEl.style.display = "block";
+  ruleHitBoxEl.innerHTML = `<b>発動ルール要約</b><br>${hitSummary.join("<br>")}`;
+  drawMark(order);
+  return {order,attackFail};
+}
+function runV8Simple(){
+  const boats=parseData();
+  if(boats.length<6){ simpleResultEl.innerHTML="結果待ち"; return; }
+  boats.forEach((b,i)=>{ const n=i+1; b.tenji=getTenji(n); b.demo=getDemo(n); b.fPen=fPenalty(b.f); b.form=parseForm(document.getElementById("form"+n).value); });
+  const two=boats[1], entry=parseEntry();
+  const attack=boats.slice(2).map(x=>({n:x.boat,sc:x.rate*5+x.m2*0.5+(0.2-x.st)*100+x.makuri*5-(x.boat>=5?8:0)})).sort((a,b)=>b.sc-a.sc);
+  const top=attack[0];
+  let attackFail=0;
+  if(top.sc<70) attackFail+=2;
+  if(top.sc<60) attackFail+=2;
+  if(two.rate>5.5) attackFail+=2;
+  const twoRisk=analyzeTwoCourseRisk(two,boats,entry), threeRemain=analyzeThreeRemain(boats,entry,twoRisk,attackFail), fiveKado=analyzeFiveKado(boats,entry,twoRisk), fallback=choose3or5Fallback(boats,entry,twoRisk,threeRemain,fiveKado);
+  let order=attackFail>=6?`1-${top.n}-2`:`${top.n}-2-1`;
+  if(twoRisk.count>=2) order=fallback.pick==="5"?`1-5-2`:`1-3-2`;
+  const buy=[order,`${top.n}-2-1`,`1-3-2`,`1-5-2`];
+  simpleResultEl.innerHTML=`<b>v8 シンプル版</b><br>1マーク通過予想： ${order}<br>攻め不成立指数： ${attackFail}<br>2コースチェック： ${twoRisk.count}項目 / ${twoRisk.rule}<br>2飛び時の本線寄り： ${fallback.pick}<br>3残り判定： ${threeRemain.rule}<br>5カド判定： ${fiveKado.rule}<br><br><b>簡易買い目</b><br>${buy.join("<br>")}`;
+}
+function isNum(s){ return /^-?\d+(\.\d+)?$/.test(s); }
+function find(lines,keyword,start=0){ for(let i=start;i<lines.length;i++) if(lines[i].includes(keyword)) return i; return -1; }
+function findAny(lines,keywords,start=0){ for(let i=start;i<lines.length;i++) if(keywords.some(k=>lines[i].includes(k))) return i; return -1; }
+function numsBetween(lines,start,end){ const out=[]; for(let i=start+1;i<end;i++) if(isNum(lines[i])) out.push(parseFloat(lines[i])); return out; }
+function textsBetween(lines,start,end,pattern){ const out=[]; for(let i=start+1;i<end;i++) if(pattern.test(lines[i])) out.push(lines[i]); return out; }
+function pairField(nums,field){ const arr=[]; for(let i=0;i+1<nums.length;i+=2) arr.push(field===0?nums[i]:nums[i+1]); return arr; }
+function rev(a){ return a.slice().reverse(); }
+function parseF(lines){ let idx=find(lines,"Ｆ"); if(idx<0) idx=find(lines,"F"); if(idx<0) return Array(6).fill("なし"); const upper=lines.slice(0,idx), candidates=[]; for(let i=0;i<upper.length;i++){ const s=upper[i]; if(s==="-"){ candidates.push("-"); continue; } if(/^\d+\s*\((未|済)\)$/.test(s)){ candidates.push(s.replace(/\s+/g,"")); continue; } if(/^\d+$/.test(s)&&i+1<upper.length&&/^\((未|済)\)$/.test(upper[i+1])){ candidates.push(s+upper[i+1]); i++; } } const last6=candidates.slice(-6); while(last6.length<6) last6.unshift("-"); return last6.reverse().map(v=>{ if(v==="-"||v==="") return "なし"; const m=v.match(/^(\d+)\((未|済)\)$/); return m?"F"+m[1]:"なし"; }); }
+function convertRawToFormatted(){
+  const lines = splitLines(rawDataEl.value);
+  const target = document.getElementById("pasteData");
+  if(lines.length < 20){
+    if(target) target.value = "";
+    resultEl.innerHTML = "元データ量が足りません。";
+    return null;
+  }
+  const idxF=findAny(lines,["Ｆ","F"]),
+        idxNational=findAny(lines,["全国勝率"]),
+        idxLocal=findAny(lines,["当地勝率"]),
+        idxMotor=findAny(lines,["モーター","モーター2連率"],Math.max(0,idxLocal+1)),
+        idxAvgST=findAny(lines,["平均ST"]),
+        idxSession=findAny(lines,["今節平均ST"]),
+        idxCourseData=findAny(lines,["コース別データ"]),
+        idxCourseWin=findAny(lines,["勝率"],Math.max(0,idxCourseData+1)),
+        idxKimari=findAny(lines,["決まり手"],Math.max(0,idxCourseWin+1)),
+        idxCourse2Label=findAny(lines,["2着内率"],Math.max(0,idxKimari+1));
+  if([idxF,idxNational,idxLocal,idxMotor,idxAvgST,idxSession,idxCourseData,idxCourseWin,idxKimari].some(x=>x<0)){
+    if(target) target.value = "";
+    resultEl.innerHTML = "元データの見出しが不足しています。";
+    return null;
+  }
+  try{
+    const fVals=parseF(lines), natNums=[];
+    for(let i=idxNational-1;i>=0&&natNums.length<12;i--){
+      if(isNum(lines[i])) natNums.push(parseFloat(lines[i]));
+      if(lines[i].includes("Ｌ")||lines[i].includes("L")) break;
+    }
+    const wins=pairField(natNums.reverse(),0).reverse(),
+          motorNums=numsBetween(lines,idxLocal,idxMotor),
+          motor2=rev(pairField(motorNums,1));
+    const avgNums=[];
+    for(let i=idxAvgST-1;i>=0&&avgNums.length<6;i--){
+      if(isNum(lines[i])) avgNums.push(parseFloat(lines[i]));
+      if(lines[i].includes("スタートデータ")) break;
+    }
+    const avgST=avgNums,
+          sessionNums=numsBetween(lines,idxAvgST,idxSession),
+          sessionST=rev(pairField(sessionNums,0)),
+          avgStartRank=rev(pairField(sessionNums,1));
+    const beforeWinNums=numsBetween(lines,idxCourseData,idxKimari),
+          courseST=rev(pairField(beforeWinNums.slice(0,12),0)),
+          courseWin=rev(beforeWinNums.slice(12,18));
+    const kimariEnd=idxCourse2Label>-1?idxCourse2Label:lines.length,
+          kimari=rev(textsBetween(lines,idxCourseWin,kimariEnd,/^\d+\/\d+\/\d+$/).slice(0,6));
+    const course2Raw=[];
+    for(let i=idxKimari+1;i<lines.length&&course2Raw.length<6;i++){
+      if(isNum(lines[i])) course2Raw.push(parseFloat(lines[i]));
+    }
+    const course2=course2Raw.reverse();
+    const counts={F:fVals.length,勝率:wins.length,M2:motor2.length,平均ST:avgST.length,今節平均ST:sessionST.length,平均スタート順:avgStartRank.length,コース別平均ST:courseST.length,コース別勝率:courseWin.length,決まり手:kimari.length,コース別2着内率:course2.length};
+    if(Math.min(...Object.values(counts)) < 6){
+      if(target) target.value = "";
+      resultEl.innerHTML = "元データの読み取り途中で不足がありました。";
+      return null;
+    }
+    const rows=[];
+    for(let i=0;i<6;i++){
+      rows.push([
+        i+1,fVals[i],Number(avgST[i]||0).toFixed(2),Number(wins[i]||0).toFixed(2),Number(motor2[i]||0).toFixed(2),Number(courseST[i]||0).toFixed(2),Number(course2[i]||0).toFixed(2),kimari[i]||"0/0/0",Number(courseWin[i]||0).toFixed(2),Number(sessionST[i]||0).toFixed(2),Number(avgStartRank[i]||0).toFixed(1)
+      ].join(","));
+    }
+    const result = `艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順\n\n${rows.join("\n")}`;
+    if(target){
+      target.value = result;
+      target.textContent = result;
+      target.dispatchEvent(new Event("input", {bubbles:true}));
+      target.dispatchEvent(new Event("change", {bubbles:true}));
+      target.focus();
+      target.scrollIntoView({behavior:"smooth", block:"center"});
+    }
+    resultEl.innerHTML = "整形済みデータ欄へ反映しました。";
+    return result;
+  }catch(e){
+    if(target) target.value = "";
+    resultEl.innerHTML = "整形中にエラーが出ました。";
+    return null;
+  }
+}
+function fillSample(){ pasteDataEl.value=`艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順
+
+1,なし,0.14,5.89,39.13,0.16,73.46,0/0/0,53.06,0.17,2.8
+2,F1,0.16,5.48,31.72,0.15,51.21,5/3/0,19.51,0.18,3.0
+3,なし,0.20,4.17,37.10,0.21,26.00,0/2/2,8.00,0.20,4.0
+4,なし,0.18,4.77,35.84,0.18,8.82,0/0/0,2.94,0.21,5.1
+5,なし,0.18,3.91,44.39,0.16,10.25,0/1/0,5.12,0.22,4.8
+6,なし,0.19,5.61,39.91,0.22,2.85,0/0/0,0.00,0.19,3.0`;
+  trackEl.value="徳山"; entryPatternEl.value="123/456";
+  const tenjis={1:"6.97",2:"7.03",3:"7.03",4:"7.03",5:"6.99",6:"6.96"};
+  const demos={1:"0",2:"6",3:"0",4:"6",5:"0",6:"0"};
+  for(let i=1;i<=6;i++){ document.getElementById("tenji"+i).value=tenjis[i]||""; document.getElementById("demo"+i).value=demos[i]||"0"; document.getElementById("form"+i).value=""; }
+}
+function clearAll(){
+  rawDataEl.value=""; pasteDataEl.value=""; entryPatternEl.value=""; oddsTextEl.value=""; trackEl.value="大村";
+  optConservative.checked=true; optHeavyOne.checked=false; optOddsSafe.checked=true; optTightHimo.checked=true; if(optAutoRuleReflect) optAutoRuleReflect.checked=true;
+  for(let i=1;i<=6;i++){ document.getElementById("tenji"+i).value=""; document.getElementById("demo"+i).value="0"; document.getElementById("form"+i).value=""; }
+  resultEl.innerHTML="結果待ち"; simpleResultEl.innerHTML="結果待ち"; scoreBoxEl.style.display="none"; markViewEl.style.display="none"; if(ruleHitBoxEl) ruleHitBoxEl.style.display="none";
+}
+function runAll(){ runV7(); runV8Simple(); }
+document.addEventListener("DOMContentLoaded",()=>{
+  makeInputs();
+  trackEl=document.getElementById("track"); entryPatternEl=document.getElementById("entryPattern"); oddsTextEl=document.getElementById("oddsText"); pasteDataEl=document.getElementById("pasteData");
+  resultEl=document.getElementById("result"); scoreBoxEl=document.getElementById("scoreBox"); markViewEl=document.getElementById("markView"); simpleResultEl=document.getElementById("simpleResult");
+  rawDataEl=document.getElementById("rawData"); ruleHitBoxEl=document.getElementById("ruleHitBox");
+  optConservative=document.getElementById("optConservative"); optHeavyOne=document.getElementById("optHeavyOne"); optOddsSafe=document.getElementById("optOddsSafe"); optTightHimo=document.getElementById("optTightHimo"); optAutoRuleReflect=document.getElementById("optAutoRuleReflect");
+  document.getElementById("btnPredict").addEventListener("click",runAll);
+  document.getElementById("btnSample").addEventListener("click",()=>{ fillSample(); runAll(); });
+  document.getElementById("btnClear").addEventListener("click",clearAll);
+  document.getElementById("btnFormat").addEventListener("click",convertRawToFormatted);
+  document.getElementById("btnFormatAndPredict").addEventListener("click",()=>{ if(convertRawToFormatted()) runAll(); });
+  clearAll();
+});
+</script>
+</body>
+</html>
