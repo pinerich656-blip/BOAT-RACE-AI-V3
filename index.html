@@ -495,9 +495,19 @@ function parseFormResults(block){
   for(let i=0;i<block.length;i++){
     const cur = String(block[i]||"").trim();
     const prev = String(block[i-1]||"").trim();
-    if(cur === "着" && /^[1-6]$/.test(prev)) finishes.push(parseInt(prev,10));
+
+    // F / L / 空文字は無視
+    if(cur === "F" || cur === "Ｆ" || cur === "L" || cur === "Ｌ" || !cur) continue;
+
+    if(cur === "着" && /^[1-6]$/.test(prev)){
+      finishes.push(parseInt(prev,10));
+      continue;
+    }
+
     const m = cur.match(/([1-6])\s*着$/);
-    if(m) finishes.push(parseInt(m[1],10));
+    if(m){
+      finishes.push(parseInt(m[1],10));
+    }
   }
   return finishes;
 }
